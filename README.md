@@ -16,11 +16,19 @@ Ajudar usuários a organizar finanças e acompanhar investimentos.
 ## 🚧 Status
 Sprint 1 em andamento
 
+## ⚙️ Funcionalidades Iniciais
+- Cálculo da taxa de investimento mensal
+- Cálculo do score da carteira com base em diversificação e concentração
+- Simulador de crescimento com juros compostos
+- Estrutura inicial de backend para regras de negócio
+- Planejamento de testes unitários para validação das funcionalidades
+
 ## 👥 Integrantes - RA
 Pedro Ferreira Guimarães RA: 10723111619
 Matheus Subtil de Oliveira RA: 10723112274
 Felipe de Menezes Sternardt dos Santos RA: 10723113315
 Guilherme Van Der Laan Dilli Rosa RA: 1072316305 
+
 
 =======
 # fmpinvest-app
