@@ -1,3 +1,4 @@
+
 # FMPInvest
 
 Projeto acadêmico da disciplina UC HUB: Projeto Prático.
@@ -14,3 +15,7 @@ Ajudar usuários a organizar finanças e acompanhar investimentos.
 
 ## 🚧 Status
 Sprint 1 em andamento
+=======
+# fmpinvest-app
+Plataforma web educacional para apoio a usuários interessados em organização financeira, investimentos e acompanhamento de metas.
+
