@@ -17,53 +17,15 @@
 
       <section class="card">
         <h2>Perfil Financeiro do Usuario</h2>
-        <form id="profileForm" class="form-grid form-3col">
-          <label>Nome<input id="userName" type="text" required /></label>
-          <label>Idade<input id="age" type="number" min="1" step="1" required /></label>
-          <label>Renda mensal (R$)<input id="monthlyIncome" type="number" min="0" step="0.01" required /></label>
-          <label>Gasto mensal medio (R$)<input id="monthlyExpense" type="number" min="0" step="0.01" required /></label>
-          <label>Aporte mensal pretendido (R$)<input id="monthlyContribution" type="number" min="0" step="0.01" required /></label>
-          <label>Reserva de emergencia atual (R$)<input id="emergencyReserveAmount" type="number" min="0" step="0.01" required /></label>
-          <label>Objetivo financeiro principal
-            <select id="mainGoal" required>
-              <option value="">Selecione</option><option value="reserva de emergencia">Reserva de emergencia</option><option value="comprar imovel">Comprar imovel</option><option value="aposentadoria">Aposentadoria</option><option value="viver de renda">Viver de renda</option><option value="crescimento patrimonial">Crescimento patrimonial</option><option value="curto prazo">Curto prazo</option>
-            </select>
-          </label>
-          <label>Prazo do objetivo (meses)<input id="goalMonths" type="number" min="1" step="1" required /></label>
-          <label>Conhecimento em investimentos
-            <select id="knowledgeLevel" required>
-              <option value="">Selecione</option><option value="iniciante">Iniciante</option><option value="intermediario">Intermediario</option><option value="avancado">Avancado</option>
-            </select>
-          </label>
-          <label>Tolerancia ao risco
-            <select id="riskTolerance" required>
-              <option value="">Selecione</option><option value="baixa">Baixa</option><option value="media">Media</option><option value="alta">Alta</option>
-            </select>
-          </label>
-          <label>Horizonte de investimento
-            <select id="investmentHorizon" required>
-              <option value="">Selecione</option><option value="curto prazo">Curto prazo</option><option value="medio prazo">Medio prazo</option><option value="longo prazo">Longo prazo</option>
-            </select>
-          </label>
-          <label>Ja possui reserva de emergencia?
-            <select id="hasEmergencyReserve" required>
-              <option value="">Selecione</option><option value="sim">Sim</option><option value="parcialmente">Parcialmente</option><option value="nao">Nao</option>
-            </select>
-          </label>
-          <label>Preferencia de liquidez
-            <select id="liquidityPreference" required>
-              <option value="">Selecione</option><option value="alta">Alta</option><option value="media">Media</option><option value="baixa">Baixa</option>
-            </select>
-          </label>
-          <button type="submit">Calcular perfil</button>
-        </form>
+        <div id="profileQuestionnaire" class="profile-questionnaire"></div>
         <div id="profileResult" class="result-box"></div>
       </section>
 
       <section class="card">
         <h2>Cadastro de Ativos</h2>
+        <p>Adicione os investimentos da sua carteira para calcular diversificacao, risco e score.</p>
         <form id="assetForm" class="form-grid form-4col">
-          <label>Categoria do ativo
+          <label class="asset-category-selector">Qual tipo de investimento voce quer cadastrar?
             <select id="assetCategory" required>
               <option value="">Selecione</option>
               <option value="acoes">Acoes</option>
@@ -72,8 +34,9 @@
               <option value="fundos imobiliarios">Fundos Imobiliarios</option>
             </select>
           </label>
-          <div id="assetDynamicFields" class="dynamic-fields"></div>
-          <button type="submit">Adicionar ativo</button>
+          <div id="assetCategoryDescription" class="asset-category-description"></div>
+          <div id="assetDynamicFields" class="dynamic-fields asset-category-card"></div>
+          <button type="submit" class="asset-submit-btn">Adicionar ativo</button>
         </form>
         <p id="assetMessage" class="result"></p>
       </section>
@@ -82,13 +45,37 @@
         <h2>Carteira de Investimentos</h2>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Categoria</th><th>Nome</th><th>Ticker/Identificacao</th><th>Valor investido</th><th>% Carteira</th><th>Dados principais</th><th>Risco</th><th>Acao</th></tr></thead>
+            <thead><tr><th>Categoria</th><th>Nome</th><th>Valor investido</th><th>Perfil do ativo</th><th>Risco</th><th>Detalhes</th><th>Acao</th></tr></thead>
             <tbody id="portfolioTableBody"></tbody>
           </table>
         </div>
       </section>
 
-      <section class="card"><h2>Metricas da Carteira</h2><div id="metricsGrid" class="metrics-grid"></div></section>
+      <section class="card">
+        <h2>Metricas da Carteira</h2>
+        <div id="metricsGrid" class="metrics-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>Visualizacao da Carteira</h2>
+        <div id="chartsGrid" class="charts-grid">
+          <div class="chart-card">
+            <h3>Alocacao por categoria</h3>
+            <p class="chart-subtitle">Distribuicao do valor investido entre as classes da carteira.</p>
+            <canvas id="chartCategorias"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Renda fixa x renda variavel</h3>
+            <p class="chart-subtitle">Comparacao entre ativos defensivos e ativos de maior oscilacao.</p>
+            <canvas id="chartRendaFixaVariavel"></canvas>
+          </div>
+          <div class="chart-card chart-card-wide">
+            <h3>Concentracao por ativo</h3>
+            <p class="chart-subtitle">Percentual que cada ativo representa no total da carteira.</p>
+            <canvas id="chartConcentracao"></canvas>
+          </div>
+        </div>
+      </section>
 
       <section class="card">
         <h2>Simulador de Juros Compostos</h2>
@@ -104,7 +91,7 @@
         <div id="simulationResult" class="result-box"></div>
       </section>
 
-      <section class="card"><h2>Recomendacoes Automaticas</h2><ul id="recommendationsList" class="recommendations-list"><li>Preencha o perfil e adicione ativos para gerar recomendacoes.</li></ul></section>
+      <section class="card"><h2>Recomendacoes Automaticas</h2><div id="recommendationsList" class="recommendations-grid"></div></section>
 
       <section class="card">
         <h2>Chatbot de Suporte</h2>
@@ -112,6 +99,7 @@
         <div class="chatbot-placeholder"><input type="text" disabled placeholder="Digite sua pergunta (em breve)" /><button disabled>Enviar</button></div>
       </section>
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

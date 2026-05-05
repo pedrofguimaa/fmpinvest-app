@@ -3,8 +3,11 @@ const { analyzeProfile, isValidNonNegativeNumber } = require('../services/profil
 const { calculatePortfolioMetrics } = require('../services/portfolioService');
 const { generateRecommendations } = require('../services/recommendationService');
 const { simulateCompoundInterest } = require('../services/simulationService');
+const portfolioRoutes = require('./portfolioRoutes');
 
 const router = express.Router();
+
+router.use(portfolioRoutes);
 
 router.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'fmpinvest-backend' });

@@ -5,7 +5,6 @@
 
   const normalized = assets.map((asset) => ({
     name: String(asset.name || '').trim(),
-    ticker: String(asset.ticker || '').trim(),
     type: String(asset.type || '').trim().toLowerCase(),
     value: Number(asset.value),
     expectedAnnualReturn: asset.expectedAnnualReturn === null || asset.expectedAnnualReturn === undefined
@@ -40,6 +39,10 @@
     .filter((asset) => asset.risk === 'alto')
     .reduce((sum, asset) => sum + asset.value, 0);
 
+  const cryptoValue = normalized
+    .filter((asset) => asset.type === 'cripto')
+    .reduce((sum, asset) => sum + asset.value, 0);
+
   const dailyLiquidityValue = normalized
     .filter((asset) => asset.liquidity === 'diaria')
     .reduce((sum, asset) => sum + asset.value, 0);
@@ -47,6 +50,7 @@
   const percentFixedIncome = totalInvested > 0 ? (fixedIncomeValue / totalInvested) * 100 : 0;
   const percentVariableIncome = totalInvested > 0 ? (variableValue / totalInvested) * 100 : 0;
   const percentHighRisk = totalInvested > 0 ? (highRiskValue / totalInvested) * 100 : 0;
+  const percentCrypto = totalInvested > 0 ? (cryptoValue / totalInvested) * 100 : 0;
   const percentDailyLiquidity = totalInvested > 0 ? (dailyLiquidityValue / totalInvested) * 100 : 0;
 
   let diversification = 'baixa';
@@ -58,13 +62,32 @@
   else if (percentHighRisk >= 20) riskClassification = 'medio';
 
   let score = 100;
-  if (assetsCount < 3) score -= 20;
-  if (typesCount === 1) score -= 20;
+  if (assetsCount < 2) score -= 30;
+  else if (assetsCount < 3) score -= 15;
+
+  if (typesCount <= 1) score -= 25;
+  else if (typesCount === 2) score -= 10;
+
   if (maxConcentrationPercent > 50) score -= 20;
+  else if (maxConcentrationPercent >= 35) score -= 10;
+
+  if (percentCrypto > 30) score -= 15;
   if (percentHighRisk > 40) score -= 15;
-  if (percentDailyLiquidity < 20) score -= 10;
-  if (investorProfile === 'conservador' && percentHighRisk > 30) score -= 15;
-  if (investorProfile === 'arrojado' && percentFixedIncome > 80) score -= 10;
+  if (percentFixedIncome === 0) score -= 10;
+
+  if (diversification === 'baixa') score -= 15;
+  else if (diversification === 'media') score -= 5;
+
+  if (investorProfile === 'conservador') {
+    if (percentHighRisk > 45 || percentCrypto > 25) score -= 20;
+    else if (percentHighRisk > 30 || percentCrypto > 15) score -= 10;
+  } else if (investorProfile === 'moderado') {
+    if (maxConcentrationPercent > 60 || percentHighRisk > 60) score -= 15;
+    else if (maxConcentrationPercent > 50 || percentHighRisk > 45) score -= 10;
+  } else if (investorProfile === 'arrojado') {
+    if (percentFixedIncome > 90) score -= 20;
+    else if (percentFixedIncome > 80) score -= 10;
+  }
 
   score = Math.max(0, Math.min(100, score));
 
@@ -77,6 +100,7 @@
     percentFixedIncome: Number(percentFixedIncome.toFixed(2)),
     percentVariableIncome: Number(percentVariableIncome.toFixed(2)),
     percentHighRisk: Number(percentHighRisk.toFixed(2)),
+    percentCrypto: Number(percentCrypto.toFixed(2)),
     percentDailyLiquidity: Number(percentDailyLiquidity.toFixed(2)),
     diversification,
     riskClassification,
