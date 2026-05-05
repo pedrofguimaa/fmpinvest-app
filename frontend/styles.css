@@ -1,0 +1,31 @@
+﻿:root { --bg:#f3f6fb; --card:#fff; --text:#1f2937; --muted:#5b6577; --primary:#1f6feb; --line:#d6deea; --success:#166534; --error:#b42318; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; background:linear-gradient(160deg,#e8eef8,var(--bg)); color:var(--text); }
+.container { max-width:1200px; margin:0 auto; padding:16px; }
+.card { background:var(--card); border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 8px 22px rgba(20,40,70,.08); }
+h1,h2 { margin-top:0; }
+p { color:var(--muted); }
+.form-grid { display:grid; gap:10px; }
+.form-3col { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.form-4col { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.dynamic-fields { grid-column: 1 / -1; display:grid; gap:10px; grid-template-columns:repeat(4,minmax(0,1fr)); }
+label { display:grid; gap:6px; font-size:.93rem; }
+input,select,button { width:100%; border-radius:8px; border:1px solid var(--line); padding:9px; font-size:.95rem; }
+button { border:none; background:var(--primary); color:#fff; font-weight:600; cursor:pointer; }
+button:disabled { opacity:.6; cursor:not-allowed; }
+.result { min-height:22px; font-weight:600; }
+.result-box { margin-top:10px; background:#f8fbff; border:1px solid #dce7f9; border-radius:8px; padding:10px; }
+.error { color:var(--error); }
+.success { color:var(--success); }
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+th,td { padding:8px; border-bottom:1px solid var(--line); text-align:left; font-size:.9rem; }
+.empty-row { text-align:center; color:var(--muted); }
+.remove-btn { background:#dc2626; padding:6px 8px; font-size:.85rem; }
+.metrics-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.metric-item { background:#f8fbff; border:1px solid #dce7f9; border-radius:8px; padding:10px; }
+.metric-item strong { display:block; margin-bottom:4px; }
+.recommendations-list { margin:0; padding-left:18px; }
+.chatbot-placeholder { display:grid; grid-template-columns:1fr auto; gap:8px; }
+@media (max-width:1024px) { .form-4col,.dynamic-fields,.metrics-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:700px) { .form-3col,.form-4col,.dynamic-fields,.metrics-grid,.chatbot-placeholder { grid-template-columns:1fr; } .container { padding:10px; } }

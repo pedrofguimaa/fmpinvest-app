@@ -1,0 +1,117 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FMP Invest</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="hero card">
+        <h1>FMP Invest</h1>
+        <p>Plataforma educacional para iniciantes acompanharem perfil, carteira, risco, liquidez e evolucao de investimentos.</p>
+      </header>
+
+      <section class="card"><h2>Visao Geral do Projeto</h2><p>MVP da Sprint 1 com analise de perfil de investidor, carteira, metricas automaticas, recomendacoes por regras e simulador de juros compostos.</p></section>
+
+      <section class="card">
+        <h2>Perfil Financeiro do Usuario</h2>
+        <form id="profileForm" class="form-grid form-3col">
+          <label>Nome<input id="userName" type="text" required /></label>
+          <label>Idade<input id="age" type="number" min="1" step="1" required /></label>
+          <label>Renda mensal (R$)<input id="monthlyIncome" type="number" min="0" step="0.01" required /></label>
+          <label>Gasto mensal medio (R$)<input id="monthlyExpense" type="number" min="0" step="0.01" required /></label>
+          <label>Aporte mensal pretendido (R$)<input id="monthlyContribution" type="number" min="0" step="0.01" required /></label>
+          <label>Reserva de emergencia atual (R$)<input id="emergencyReserveAmount" type="number" min="0" step="0.01" required /></label>
+          <label>Objetivo financeiro principal
+            <select id="mainGoal" required>
+              <option value="">Selecione</option><option value="reserva de emergencia">Reserva de emergencia</option><option value="comprar imovel">Comprar imovel</option><option value="aposentadoria">Aposentadoria</option><option value="viver de renda">Viver de renda</option><option value="crescimento patrimonial">Crescimento patrimonial</option><option value="curto prazo">Curto prazo</option>
+            </select>
+          </label>
+          <label>Prazo do objetivo (meses)<input id="goalMonths" type="number" min="1" step="1" required /></label>
+          <label>Conhecimento em investimentos
+            <select id="knowledgeLevel" required>
+              <option value="">Selecione</option><option value="iniciante">Iniciante</option><option value="intermediario">Intermediario</option><option value="avancado">Avancado</option>
+            </select>
+          </label>
+          <label>Tolerancia ao risco
+            <select id="riskTolerance" required>
+              <option value="">Selecione</option><option value="baixa">Baixa</option><option value="media">Media</option><option value="alta">Alta</option>
+            </select>
+          </label>
+          <label>Horizonte de investimento
+            <select id="investmentHorizon" required>
+              <option value="">Selecione</option><option value="curto prazo">Curto prazo</option><option value="medio prazo">Medio prazo</option><option value="longo prazo">Longo prazo</option>
+            </select>
+          </label>
+          <label>Ja possui reserva de emergencia?
+            <select id="hasEmergencyReserve" required>
+              <option value="">Selecione</option><option value="sim">Sim</option><option value="parcialmente">Parcialmente</option><option value="nao">Nao</option>
+            </select>
+          </label>
+          <label>Preferencia de liquidez
+            <select id="liquidityPreference" required>
+              <option value="">Selecione</option><option value="alta">Alta</option><option value="media">Media</option><option value="baixa">Baixa</option>
+            </select>
+          </label>
+          <button type="submit">Calcular perfil</button>
+        </form>
+        <div id="profileResult" class="result-box"></div>
+      </section>
+
+      <section class="card">
+        <h2>Cadastro de Ativos</h2>
+        <form id="assetForm" class="form-grid form-4col">
+          <label>Categoria do ativo
+            <select id="assetCategory" required>
+              <option value="">Selecione</option>
+              <option value="acoes">Acoes</option>
+              <option value="renda fixa">Renda Fixa</option>
+              <option value="cripto">Cripto</option>
+              <option value="fundos imobiliarios">Fundos Imobiliarios</option>
+            </select>
+          </label>
+          <div id="assetDynamicFields" class="dynamic-fields"></div>
+          <button type="submit">Adicionar ativo</button>
+        </form>
+        <p id="assetMessage" class="result"></p>
+      </section>
+
+      <section class="card">
+        <h2>Carteira de Investimentos</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Categoria</th><th>Nome</th><th>Ticker/Identificacao</th><th>Valor investido</th><th>% Carteira</th><th>Dados principais</th><th>Risco</th><th>Acao</th></tr></thead>
+            <tbody id="portfolioTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card"><h2>Metricas da Carteira</h2><div id="metricsGrid" class="metrics-grid"></div></section>
+
+      <section class="card">
+        <h2>Simulador de Juros Compostos</h2>
+        <form id="simulationForm" class="form-grid form-3col">
+          <label>Objetivo da simulacao<input id="simulationGoal" type="text" required /></label>
+          <label>Valor desejado no futuro (R$)<input id="targetAmount" type="number" min="0" step="0.01" required /></label>
+          <label>Valor inicial (R$)<input id="initialAmount" type="number" min="0" step="0.01" required /></label>
+          <label>Aporte mensal (R$)<input id="recurringContribution" type="number" min="0" step="0.01" required /></label>
+          <label>Taxa mensal (%)<input id="monthlyRatePercent" type="number" min="0" step="0.01" required /></label>
+          <label>Quantidade de meses<input id="months" type="number" min="1" step="1" required /></label>
+          <button type="submit">Simular</button>
+        </form>
+        <div id="simulationResult" class="result-box"></div>
+      </section>
+
+      <section class="card"><h2>Recomendacoes Automaticas</h2><ul id="recommendationsList" class="recommendations-list"><li>Preencha o perfil e adicione ativos para gerar recomendacoes.</li></ul></section>
+
+      <section class="card">
+        <h2>Chatbot de Suporte</h2>
+        <p>Integracao futura. Nesta sprint, a funcionalidade esta apenas como placeholder visual.</p>
+        <div class="chatbot-placeholder"><input type="text" disabled placeholder="Digite sua pergunta (em breve)" /><button disabled>Enviar</button></div>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
