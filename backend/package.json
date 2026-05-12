@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "fmpinvest-backend",
   "version": "1.0.0",
   "description": "API inicial do projeto FMP Invest",
@@ -6,10 +6,13 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/server.js",
-    "test": "echo \"Sem testes configurados ainda\""
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2"
   }
 }

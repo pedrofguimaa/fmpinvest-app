@@ -76,6 +76,25 @@ Depois abra `frontend/index.html` no navegador (ou use Live Server).
 - Sem autenticação e sem separação por usuário.
 - Escritas concorrentes em alta escala não são foco desta versão.
 
+## Testes automatizados
+
+Os testes automatizados do backend usam Jest e validam regras de negócio do sistema, sem foco em layout ou interface visual.
+
+Cobertura principal desta suíte:
+
+- perfil do investidor;
+- métricas da carteira;
+- score da carteira;
+- simulador de juros compostos;
+- recomendações automáticas.
+
+Como rodar:
+
+```bash
+cd backend
+npm test
+```
+
 ## Próximos passos (Sprint 2)
 
 - Migração da persistência para banco de dados relacional ou NoSQL
