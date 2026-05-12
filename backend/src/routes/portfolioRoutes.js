@@ -2,6 +2,7 @@ const express = require('express');
 const {
   listarAtivos,
   salvarAtivo,
+  atualizarAtivoPorId,
   removerAtivoPorId,
   substituirAtivos,
 } = require('../services/portfolioStorageService');
@@ -39,6 +40,19 @@ router.post('/api/portfolio/assets', async (req, res, next) => {
     validarAtivo(asset);
     const salvo = await salvarAtivo(asset);
     res.status(201).json({ asset: salvo });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/api/portfolio/assets/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const asset = req.body || {};
+    validarAtivo(asset);
+    const { updated, asset: atualizado } = await atualizarAtivoPorId(id, asset);
+    if (!updated) return res.status(404).json({ error: 'Ativo nao encontrado.' });
+    return res.json({ asset: atualizado });
   } catch (error) {
     next(error);
   }

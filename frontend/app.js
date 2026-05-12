@@ -1,5 +1,7 @@
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
 const STORAGE_KEY_FALLBACK = 'fmpinvest_assets_local';
+const STORAGE_KEY_PROFILE = 'fmpinvest_profile_analysis';
+const STORAGE_KEY_LAST_TAB = 'fmpinvest_last_dashboard_tab';
 
 const state = {
   profileAnalysis: null,
@@ -7,97 +9,109 @@ const state = {
   assets: [],
   portfolioMetrics: null,
   recommendations: [],
+  concentrationChartView: 'bar',
 };
 
 const chartsCarteira = {
   categorias: null,
   rendaFixaVariavel: null,
   concentracao: null,
+  score: null,
+  categoriasDetalhe: null,
+  risco: null,
+  liquidez: null,
+  valorAtivos: null,
+  totalAportado: null,
 };
 
-// A escala final (1 a 50) mede tolerancia ao risco, nao qualidade do investidor.
-const PONTUACAO_BRUTA_MAXIMA = 47;
+let fireworksCanvas = null;
+let fireworksContext = null;
+let fireworksAnimation = null;
+let ativoEmEdicaoIndex = null;
 
 const perguntasPerfil = [
   {
-    id: 'objetivo',
-    pergunta: 'Qual e o seu principal objetivo financeiro?',
-    opcoes: [
-      { valor: 'Criar reserva de emergencia', pontos: 1 },
-      { valor: 'Objetivo de curto prazo', pontos: 2 },
-      { valor: 'Comprar imovel', pontos: 3 },
-      { valor: 'Aposentadoria', pontos: 4 },
-      { valor: 'Viver de renda', pontos: 4 },
-      { valor: 'Crescimento patrimonial', pontos: 5 },
-    ],
+    id: 'userName',
+    pergunta: 'Qual e o seu nome?',
+    tipo: 'text',
+    placeholder: 'Digite seu nome',
   },
   {
-    id: 'horizonte',
-    pergunta: 'Por quanto tempo voce pretende investir para esse objetivo?',
-    opcoes: [
-      { valor: 'Ate 1 ano', pontos: 1 },
-      { valor: 'De 1 a 3 anos', pontos: 3 },
-      { valor: 'De 3 a 5 anos', pontos: 5 },
-      { valor: 'Mais de 5 anos', pontos: 7 },
-    ],
+    id: 'age',
+    pergunta: 'Qual e a sua idade?',
+    tipo: 'number',
+    min: 1,
+    placeholder: 'Ex: 32',
   },
   {
-    id: 'conhecimento',
+    id: 'monthlyIncome',
+    pergunta: 'Qual e a sua renda mensal?',
+    tipo: 'number',
+    min: 0,
+    step: '0.01',
+    placeholder: 'Ex: 5000',
+  },
+  {
+    id: 'monthlyExpense',
+    pergunta: 'Qual e o seu gasto mensal medio?',
+    tipo: 'number',
+    min: 0,
+    step: '0.01',
+    placeholder: 'Ex: 3200',
+  },
+  {
+    id: 'monthlyContribution',
+    pergunta: 'Quanto voce pretende investir por mes?',
+    tipo: 'number',
+    min: 0,
+    step: '0.01',
+    placeholder: 'Ex: 600',
+  },
+  {
+    id: 'emergencyReserveAmount',
+    pergunta: 'Quanto voce possui de reserva de emergencia?',
+    tipo: 'number',
+    min: 0,
+    step: '0.01',
+    placeholder: 'Ex: 10000',
+  },
+  {
+    id: 'mainGoal',
+    pergunta: 'Qual e o seu objetivo financeiro principal?',
+    tipo: 'text',
+    placeholder: 'Ex: aposentadoria, imovel, reserva',
+  },
+  {
+    id: 'goalMonths',
+    pergunta: 'Em quantos meses voce quer atingir esse objetivo?',
+    tipo: 'number',
+    min: 1,
+    placeholder: 'Ex: 60',
+  },
+  {
+    id: 'knowledgeLevel',
     pergunta: 'Qual e o seu nivel de conhecimento sobre investimentos?',
-    opcoes: [
-      { valor: 'Iniciante', pontos: 1 },
-      { valor: 'Intermediario', pontos: 4 },
-      { valor: 'Avancado', pontos: 6 },
-    ],
+    opcoes: ['iniciante', 'intermediario', 'avancado'],
   },
   {
-    id: 'reacaoPerda',
-    pergunta: 'Como voce reagiria se seus investimentos caissem 10% em um mes?',
-    opcoes: [
-      { valor: 'Venderia para evitar perdas maiores', pontos: 1 },
-      { valor: 'Ficaria preocupado, mas manteria', pontos: 5 },
-      { valor: 'Manteria e talvez compraria mais', pontos: 8 },
-    ],
+    id: 'riskTolerance',
+    pergunta: 'Qual e a sua tolerancia a risco?',
+    opcoes: ['baixa', 'media', 'alta'],
   },
   {
-    id: 'percentualRenda',
-    pergunta: 'Quanto da sua renda mensal voce consegue investir?',
-    opcoes: [
-      { valor: 'Menos de 5%', pontos: 1 },
-      { valor: 'De 5% a 10%', pontos: 3 },
-      { valor: 'De 10% a 20%', pontos: 4 },
-      { valor: 'Mais de 20%', pontos: 5 },
-    ],
+    id: 'investmentHorizon',
+    pergunta: 'Qual e o seu horizonte de investimento?',
+    opcoes: ['curto prazo', 'medio prazo', 'longo prazo'],
   },
   {
-    id: 'reserva',
+    id: 'hasEmergencyReserve',
     pergunta: 'Voce ja possui reserva de emergencia?',
-    opcoes: [
-      { valor: 'Nao tenho', pontos: -3 },
-      { valor: 'Tenho parcialmente', pontos: 0 },
-      { valor: 'Sim, tenho pelo menos 6 meses de gastos', pontos: 2 },
-    ],
+    opcoes: ['sim', 'nao', 'parcialmente'],
   },
   {
-    id: 'liquidez',
-    pergunta: 'Qual sua preferencia de liquidez?',
-    opcoes: [
-      { valor: 'Quero poder resgatar rapido', pontos: 1 },
-      { valor: 'Posso deixar parte investida por algum tempo', pontos: 4 },
-      { valor: 'Posso deixar investido por varios anos', pontos: 7 },
-    ],
-  },
-  {
-    id: 'confortoAtivo',
-    pergunta: 'Qual tipo de investimento voce se sente mais confortavel em usar?',
-    multipla: true,
-    opcoes: [
-      { valor: 'Renda fixa', pontos: 1 },
-      { valor: 'Fundos imobiliarios', pontos: 3 },
-      { valor: 'Acoes', pontos: 5 },
-      { valor: 'Cripto', pontos: 7 },
-      { valor: 'Ainda nao sei', pontos: 1 },
-    ],
+    id: 'liquidityPreference',
+    pergunta: 'Qual e a sua preferencia de liquidez?',
+    opcoes: ['alta', 'media', 'baixa'],
   },
 ];
 
@@ -120,6 +134,111 @@ function setMessage(element, message, type = '') {
   element.textContent = message;
   element.classList.remove('success', 'error');
   if (type) element.classList.add(type);
+}
+
+function salvarPerfilLocal() {
+  if (!state.profileAnalysis || !state.perfilInvestidor) return;
+  localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify({
+    profileAnalysis: state.profileAnalysis,
+    perfilInvestidor: state.perfilInvestidor,
+    respostasPerfil,
+  }));
+}
+
+function restaurarPerfilLocal() {
+  try {
+    const salvo = localStorage.getItem(STORAGE_KEY_PROFILE);
+    if (!salvo) return false;
+    const dados = JSON.parse(salvo);
+    if (!dados?.profileAnalysis || !dados?.perfilInvestidor) return false;
+
+    state.profileAnalysis = dados.profileAnalysis;
+    state.perfilInvestidor = dados.perfilInvestidor;
+    Object.assign(respostasPerfil, dados.respostasPerfil || {});
+    window.perfilInvestidor = state.perfilInvestidor;
+    return true;
+  } catch (_error) {
+    localStorage.removeItem(STORAGE_KEY_PROFILE);
+    return false;
+  }
+}
+
+function normalizarTextoPerfil(texto) {
+  return String(texto || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function obterOpcaoPerfilPorTexto(pergunta, texto) {
+  const textoNormalizado = normalizarTextoPerfil(texto);
+  return pergunta.opcoes.find((opcao) => normalizarTextoPerfil(opcao.valor || opcao) === textoNormalizado);
+}
+
+function obterValorCampoPerfil(pergunta, resposta) {
+  return resposta || '';
+}
+
+function formatarOpcaoPerfil(opcao) {
+  return String(opcao)
+    .split(' ')
+    .map((palavra) => palavra.charAt(0).toUpperCase() + palavra.slice(1))
+    .join(' ');
+}
+
+function obterPerfilExibicao(perfil) {
+  if (!perfil) return '-';
+  return formatarOpcaoPerfil(perfil);
+}
+
+function montarPayloadPerfil() {
+  return {
+    userName: respostasPerfil.userName,
+    age: Number(respostasPerfil.age),
+    monthlyIncome: Number(respostasPerfil.monthlyIncome),
+    monthlyExpense: Number(respostasPerfil.monthlyExpense),
+    monthlyContribution: Number(respostasPerfil.monthlyContribution),
+    emergencyReserveAmount: Number(respostasPerfil.emergencyReserveAmount),
+    mainGoal: respostasPerfil.mainGoal,
+    goalMonths: Number(respostasPerfil.goalMonths),
+    knowledgeLevel: respostasPerfil.knowledgeLevel,
+    riskTolerance: respostasPerfil.riskTolerance,
+    investmentHorizon: respostasPerfil.investmentHorizon,
+    hasEmergencyReserve: respostasPerfil.hasEmergencyReserve,
+    liquidityPreference: respostasPerfil.liquidityPreference,
+  };
+}
+
+function obterRespostaPerfil(id) {
+  return respostasPerfil[id] || state.profileAnalysis?.[id] || '';
+}
+
+function renderizarCampoEdicaoPerfil(pergunta) {
+  const valor = obterRespostaPerfil(pergunta.id);
+  if (pergunta.opcoes) {
+    return `
+      <label>${pergunta.pergunta}
+        <select id="edit-${pergunta.id}" data-profile-field="${pergunta.id}">
+          ${pergunta.opcoes.map((opcao) => `<option value="${opcao}" ${valor === opcao ? 'selected' : ''}>${formatarOpcaoPerfil(opcao)}</option>`).join('')}
+        </select>
+      </label>
+    `;
+  }
+
+  return `
+    <label>${pergunta.pergunta}
+      <input
+        id="edit-${pergunta.id}"
+        data-profile-field="${pergunta.id}"
+        type="${pergunta.tipo}"
+        value="${valor}"
+        placeholder="${pergunta.placeholder || ''}"
+        ${pergunta.min !== undefined ? `min="${pergunta.min}"` : ''}
+        ${pergunta.step ? `step="${pergunta.step}"` : ''}
+      />
+    </label>
+  `;
 }
 
 async function postData(endpoint, payload) {
@@ -184,29 +303,121 @@ function obterDescricaoPerfil(perfil) {
 function renderizarResultadoPerfilSimplificado() {
   const box = document.getElementById('profileResult');
   const p = state.perfilInvestidor;
-  const descricaoPontuacao = obterDescricaoPontuacaoPerfil(p.pontuacao);
-  const descricaoPerfil = obterDescricaoPerfil(p.perfil);
+  const perfilExibicao = obterPerfilExibicao(p.investorProfile);
 
   box.innerHTML = `
-    <div class="perfil-resultado-card">
-      <h3>Seu perfil de investidor</h3>
-      <div class="perfil-resultado-nome">${p.perfil}</div>
-      <div class="perfil-resultado-pontos">${p.pontuacao}/50</div>
-      <p class="perfil-resultado-texto">${descricaoPontuacao}</p>
-      <p class="perfil-resultado-texto">A pontuacao considera comportamento diante de risco, horizonte, liquidez, conhecimento e preferencias de investimento.</p>
-      <p class="perfil-resultado-texto">${descricaoPerfil}</p>
-      <div class="perfil-escala">
-        <strong>Escala de perfil:</strong>
-        <ul>
-          <li>1 a 10: Conservador severo</li>
-          <li>11 a 20: Conservador moderado</li>
-          <li>21 a 30: Moderado</li>
-          <li>31 a 40: Medio-alto risco</li>
-          <li>41 a 50: Alto risco</li>
-        </ul>
+    <div class="profile-premium-result">
+      <section class="profile-result-hero">
+        <div>
+          <span class="section-kicker">Perfil do investidor</span>
+          <h3>${perfilExibicao}</h3>
+          <p>${obterDescricaoPerfil(p.investorProfile)}</p>
+        </div>
+        <div class="profile-result-badge">
+          <span>${p.userName}</span>
+          <strong>${perfilExibicao}</strong>
+        </div>
+      </section>
+
+      <section class="profile-result-grid">
+        <article>
+          <span>Taxa de investimento</span>
+          <strong>${formatarPercentual(p.investmentRate)}</strong>
+          <small>${obterDescricaoPontuacaoPerfil(Number(p.score || p.profileScore || 0))}</small>
+        </article>
+        <article>
+          <span>Renda disponivel</span>
+          <strong>${formatCurrency(p.availableIncome)}</strong>
+          <small>Valor estimado apos despesas mensais.</small>
+        </article>
+        <article>
+          <span>Reserva de emergencia</span>
+          <strong>${p.emergencyReserveMonths} meses</strong>
+          <small>${p.emergencyReserveStatus}</small>
+        </article>
+      </section>
+
+      <section class="profile-result-diagnosis">
+        <div class="profile-result-section-title">
+          <span>Diagnostico inicial</span>
+          <strong>Pontos de atencao e leitura comportamental</strong>
+        </div>
+        <div class="profile-diagnosis-list">
+          ${p.diagnosis.map((item) => `<article><span></span><p>${item}</p></article>`).join('')}
+        </div>
+      </section>
+
+      <section class="profile-result-details">
+        <div><span>Objetivo principal</span><strong>${p.mainGoal || '-'}</strong></div>
+        <div><span>Horizonte</span><strong>${p.goalMonths || '-'} meses</strong></div>
+        <div><span>Conhecimento</span><strong>${formatarOpcaoPerfil(p.knowledgeLevel || '-')}</strong></div>
+        <div><span>Tolerancia a risco</span><strong>${formatarOpcaoPerfil(p.riskTolerance || '-')}</strong></div>
       </div>
     </div>
   `;
+}
+
+function renderizarEditorPerfil() {
+  const box = document.getElementById('profileResult');
+  if (!box) return;
+
+  box.innerHTML = `
+    <form id="profileEditForm" class="profile-edit-form">
+      <div class="profile-edit-banner">
+        <span class="section-kicker">Edicao do perfil</span>
+        <strong>Atualize os dados que realmente mudaram</strong>
+        <p>O score do perfil sera recalculado quando voce salvar as alteracoes.</p>
+      </div>
+      <div class="profile-edit-fields">
+        ${perguntasPerfil.map(renderizarCampoEdicaoPerfil).join('')}
+      </div>
+      <div class="profile-edit-actions">
+        <button type="button" class="secundario" id="btnCancelarEdicaoPerfil">Cancelar</button>
+        <button type="submit" id="btnRecalcularPerfil" class="profile-recalculate-btn dashboard-hidden">Recalcular perfil</button>
+      </div>
+      <p id="profileEditMessage" class="result"></p>
+    </form>
+  `;
+
+  const form = box.querySelector('#profileEditForm');
+  const botaoRecalcular = box.querySelector('#btnRecalcularPerfil');
+  form.querySelectorAll('[data-profile-field]').forEach((campo) => {
+    campo.addEventListener('input', () => botaoRecalcular.classList.remove('dashboard-hidden'));
+    campo.addEventListener('change', () => botaoRecalcular.classList.remove('dashboard-hidden'));
+  });
+  box.querySelector('#btnCancelarEdicaoPerfil').addEventListener('click', renderizarResultadoPerfil);
+  form.addEventListener('submit', recalcularPerfilEditado);
+}
+
+async function recalcularPerfilEditado(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const msg = document.getElementById('profileEditMessage');
+  perguntasPerfil.forEach((pergunta) => {
+    const campo = form.querySelector(`[data-profile-field="${pergunta.id}"]`);
+    respostasPerfil[pergunta.id] = String(campo?.value || '').trim();
+  });
+
+  const botao = document.getElementById('btnRecalcularPerfil');
+  botao.disabled = true;
+  botao.textContent = 'Recalculando...';
+
+  try {
+    const analise = await postData('/api/profile-analysis', montarPayloadPerfil());
+    state.profileAnalysis = analise;
+    state.perfilInvestidor = {
+      ...analise,
+      perfil: obterPerfilExibicao(analise.investorProfile),
+    };
+    window.perfilInvestidor = state.perfilInvestidor;
+    salvarPerfilLocal();
+    renderizarResultadoPerfil();
+    await atualizarDashboardCarteira();
+  } catch (error) {
+    botao.disabled = false;
+    botao.textContent = 'Recalcular perfil de investidor';
+    setMessage(msg, error.message, 'error');
+  }
 }
 
 function iniciarQuestionarioPerfil() {
@@ -220,72 +431,93 @@ function renderizarPerguntaPerfil() {
   const perguntaAtual = perguntasPerfil[indicePerguntaAtual];
   const respostaSelecionada = respostasPerfil[perguntaAtual.id];
   const progresso = Math.round(((indicePerguntaAtual + 1) / totalPerguntas) * 100);
+  const etapas = perguntasPerfil.map((_, index) => `<span class="perfil-etapa ${index <= indicePerguntaAtual ? 'ativa' : ''}"></span>`).join('');
+  const valorCampo = obterValorCampoPerfil(perguntaAtual, respostaSelecionada);
+  const respostaValida = Boolean(valorCampo.trim());
+  const campoResposta = perguntaAtual.opcoes
+    ? `
+      <div class="perfil-opcoes" role="radiogroup" aria-label="${perguntaAtual.pergunta}">
+        ${perguntaAtual.opcoes.map((opcao) => `
+          <button
+            type="button"
+            class="perfil-opcao ${respostaSelecionada === opcao ? 'selecionada' : ''}"
+            data-resposta="${opcao}"
+            aria-pressed="${respostaSelecionada === opcao ? 'true' : 'false'}"
+          >
+            <span class="perfil-opcao-marcador"></span>
+            <span>${formatarOpcaoPerfil(opcao)}</span>
+          </button>
+        `).join('')}
+      </div>
+    `
+    : `
+      <label class="perfil-campo-resposta">
+        <span>Escreva sua resposta.</span>
+        <input
+          id="perfilRespostaAtual"
+          type="${perguntaAtual.tipo}"
+          value="${valorCampo}"
+          autocomplete="off"
+          placeholder="${perguntaAtual.placeholder || 'Digite sua resposta'}"
+          ${perguntaAtual.min !== undefined ? `min="${perguntaAtual.min}"` : ''}
+          ${perguntaAtual.step ? `step="${perguntaAtual.step}"` : ''}
+        />
+      </label>
+    `;
 
   container.innerHTML = `
     <div class="perfil-card-interno">
+      <img class="perfil-logo" src="assets/logo.png" alt="FMP Invest" />
       <h3>Perfil do Investidor</h3>
       <p>Responda em menos de 2 minutos para receber uma sugestao de perfil e primeiros passos.</p>
       <div class="perfil-topo">
         <span>Pergunta ${indicePerguntaAtual + 1} de ${totalPerguntas}</span>
         <span>${progresso}%</span>
       </div>
-      <div class="perfil-barra"><div class="perfil-barra-fill" style="width:${progresso}%"></div></div>
-      <h4>${perguntaAtual.pergunta}</h4>
-      ${perguntaAtual.multipla ? '<p>Voce pode selecionar mais de uma opcao.</p>' : ''}
-      <div class="perfil-opcoes">
-        ${perguntaAtual.opcoes.map((opcao) => `
-          <button
-            type="button"
-            class="perfil-opcao ${perguntaAtual.multipla ? ((respostaSelecionada || []).includes(opcao.valor) ? 'selecionada' : '') : (respostaSelecionada === opcao.valor ? 'selecionada' : '')}"
-            data-valor="${opcao.valor}"
-          >${opcao.valor}</button>
-        `).join('')}
+      <div class="perfil-progress-shell">
+        <div class="perfil-barra"><div class="perfil-barra-fill" style="width:${progresso}%"></div></div>
+        <div class="perfil-etapas" aria-hidden="true">${etapas}</div>
       </div>
+      <h4>${perguntaAtual.pergunta}</h4>
+      ${campoResposta}
       <div class="perfil-acoes">
         <button type="button" class="secundario" id="btnVoltarPerfil" ${indicePerguntaAtual === 0 ? 'disabled' : ''}>Voltar</button>
-        <button type="button" id="btnProximoPerfil">Proximo</button>
+        <button type="button" id="btnProximoPerfil" ${respostaValida ? '' : 'disabled'}>Proximo</button>
       </div>
     </div>
   `;
 
+  const inputResposta = container.querySelector('#perfilRespostaAtual');
+  if (inputResposta) {
+    inputResposta.addEventListener('input', () => {
+      selecionarRespostaPerfil(inputResposta.value, false);
+    });
+    inputResposta.focus();
+  }
   container.querySelectorAll('.perfil-opcao').forEach((botao) => {
-    botao.addEventListener('click', () => selecionarRespostaPerfil(botao.dataset.valor));
+    botao.addEventListener('click', () => selecionarRespostaPerfil(botao.dataset.resposta));
   });
   container.querySelector('#btnVoltarPerfil').addEventListener('click', voltarPerguntaPerfil);
   container.querySelector('#btnProximoPerfil').addEventListener('click', avancarPerguntaPerfil);
 }
 
-function selecionarRespostaPerfil(resposta) {
+function selecionarRespostaPerfil(resposta, renderizar = true) {
   const perguntaAtual = perguntasPerfil[indicePerguntaAtual];
-  if (!perguntaAtual.multipla) {
-    respostasPerfil[perguntaAtual.id] = resposta;
-    renderizarPerguntaPerfil();
-    return;
-  }
+  respostasPerfil[perguntaAtual.id] = String(resposta).trim();
+  if (renderizar) renderizarPerguntaPerfil();
+  else atualizarBotaoProximoPerfil();
+}
 
-  const opcaoEspecial = 'Ainda nao sei';
-  const respostaAtual = Array.isArray(respostasPerfil[perguntaAtual.id]) ? [...respostasPerfil[perguntaAtual.id]] : [];
-
-  if (resposta === opcaoEspecial) {
-    respostasPerfil[perguntaAtual.id] = [opcaoEspecial];
-    renderizarPerguntaPerfil();
-    return;
-  }
-
-  let novaSelecao = respostaAtual.filter((item) => item !== opcaoEspecial);
-  if (novaSelecao.includes(resposta)) {
-    novaSelecao = novaSelecao.filter((item) => item !== resposta);
-  } else {
-    novaSelecao.push(resposta);
-  }
-  respostasPerfil[perguntaAtual.id] = novaSelecao;
-  renderizarPerguntaPerfil();
+function atualizarBotaoProximoPerfil() {
+  const botao = document.getElementById('btnProximoPerfil');
+  const input = document.getElementById('perfilRespostaAtual');
+  if (botao && input) botao.disabled = !input.value.trim();
 }
 
 function avancarPerguntaPerfil() {
   const perguntaAtual = perguntasPerfil[indicePerguntaAtual];
   const respostaAtual = respostasPerfil[perguntaAtual.id];
-  const respostaValida = perguntaAtual.multipla ? Array.isArray(respostaAtual) && respostaAtual.length > 0 : Boolean(respostaAtual);
+  const respostaValida = Boolean(obterValorCampoPerfil(perguntaAtual, respostaAtual).trim());
   if (!respostaValida) return;
 
   if (indicePerguntaAtual < perguntasPerfil.length - 1) {
@@ -303,90 +535,11 @@ function voltarPerguntaPerfil() {
   renderizarPerguntaPerfil();
 }
 
-function calcularResultadoPerfil() {
-  let pontuacaoBruta = 0;
-  perguntasPerfil.forEach((pergunta) => {
-    const selecionada = respostasPerfil[pergunta.id];
-    if (pergunta.multipla) {
-      const selecionadas = Array.isArray(selecionada) ? selecionada : [];
-      const pontosSelecionados = selecionadas
-        .map((valor) => pergunta.opcoes.find((item) => item.valor === valor)?.pontos)
-        .filter((pontos) => Number.isFinite(pontos));
-      const media = pontosSelecionados.length ? pontosSelecionados.reduce((soma, pontos) => soma + pontos, 0) / pontosSelecionados.length : 0;
-      pontuacaoBruta += media;
-      return;
-    }
-    const opcao = pergunta.opcoes.find((item) => item.valor === selecionada);
-    pontuacaoBruta += opcao ? opcao.pontos : 0;
-  });
-
-  const pontuacaoFinal = Math.round((pontuacaoBruta / PONTUACAO_BRUTA_MAXIMA) * 50);
-  const pontuacao = Math.max(1, Math.min(50, pontuacaoFinal));
-
-  let perfil = 'Moderado';
-  if (pontuacao <= 10) perfil = 'Conservador severo';
-  else if (pontuacao <= 20) perfil = 'Conservador moderado';
-  else if (pontuacao <= 30) perfil = 'Moderado';
-  else if (pontuacao <= 40) perfil = 'Medio-alto risco';
-  else perfil = 'Alto risco';
-
-  const resumoPorPerfil = {
-    'Conservador severo': 'Seu perfil indica alta cautela com risco e preferencia por seguranca.',
-    'Conservador moderado': 'Seu perfil aceita algum risco, mas ainda precisa de equilibrio e liquidez.',
-    Moderado: 'Seu perfil demonstra tolerancia intermediaria a oscilacoes.',
-    'Medio-alto risco': 'Seu perfil aceita maior volatilidade em busca de retorno.',
-    'Alto risco': 'Seu perfil possui alta tolerancia a risco, mas ainda precisa de controle de concentracao.',
-  };
-
-  const recomendacoesPorPerfil = {
-    'Conservador severo': [
-      'Mantenha alta exposicao em renda fixa e liquidez.',
-      'Evite cripto neste momento.',
-      'Evite carteira com muitos ativos de alto risco.',
-    ],
-    'Conservador moderado': [
-      'Mantenha boa parte da carteira em renda fixa.',
-      'Pode ter pequena exposicao em FIIs e acoes.',
-      'Cripto deve ser muito limitada.',
-    ],
-    Moderado: [
-      'Busque equilibrio entre renda fixa, FIIs e acoes.',
-      'Mantenha exposicao pequena e controlada a cripto.',
-      'Evite concentracao excessiva em poucos ativos.',
-    ],
-    'Medio-alto risco': [
-      'Pode manter maior peso em acoes e FIIs.',
-      'Cripto pode entrar com exposicao controlada.',
-      'Evite concentracao em um unico ativo.',
-    ],
-    'Alto risco': [
-      'Aceita maior exposicao a acoes e cripto.',
-      'Diversificacao continua obrigatoria.',
-      'Carteira 100% em um unico ativo continua inadequada.',
-    ],
-  };
-
-  return {
-    objetivo: respostasPerfil.objetivo,
-    horizonte: respostasPerfil.horizonte,
-    conhecimento: respostasPerfil.conhecimento,
-    pontuacao,
-    perfil,
-    resumo: resumoPorPerfil[perfil],
-    recomendacoes: recomendacoesPorPerfil[perfil],
-  };
-}
-
-function mapearPerfilAtualParaPerfilLegado(perfilAtual) {
-  if (perfilAtual === 'Conservador severo' || perfilAtual === 'Conservador moderado') return 'Conservador';
-  if (perfilAtual === 'Moderado') return 'Moderado';
-  return 'Arrojado';
-}
-
 function renderizarFimQuestionarioPerfil() {
   const container = document.getElementById('profileQuestionnaire');
   container.innerHTML = `
     <div class="perfil-card-interno">
+      <img class="perfil-logo" src="assets/logo.png" alt="FMP Invest" />
       <h3>Questionario finalizado</h3>
       <p>Revise as respostas e gere seu resultado de perfil.</p>
       <ul class="perfil-resumo-lista">
@@ -397,26 +550,195 @@ function renderizarFimQuestionarioPerfil() {
         }).join('')}
       </ul>
       <div class="perfil-acoes">
-        <button type="button" class="secundario" id="btnEditarPerfil">Voltar</button>
+        <button type="button" class="secundario" id="btnVoltarResumoPerfil">Voltar</button>
         <button type="button" id="btnVerPerfil">Ver meu perfil</button>
       </div>
     </div>
   `;
-  container.querySelector('#btnEditarPerfil').addEventListener('click', () => {
+  container.querySelector('#btnVoltarResumoPerfil').addEventListener('click', () => {
     indicePerguntaAtual = perguntasPerfil.length - 1;
     renderizarPerguntaPerfil();
   });
   container.querySelector('#btnVerPerfil').addEventListener('click', async () => {
-    state.perfilInvestidor = calcularResultadoPerfil();
-    state.profileAnalysis = { investorProfile: mapearPerfilAtualParaPerfilLegado(state.perfilInvestidor.perfil) };
-    window.perfilInvestidor = state.perfilInvestidor;
-    renderizarResultadoPerfil();
-    await atualizarDashboardCarteira();
+    const botao = container.querySelector('#btnVerPerfil');
+    botao.disabled = true;
+    botao.textContent = 'Gerando...';
+    try {
+      const analise = await postData('/api/profile-analysis', montarPayloadPerfil());
+      state.profileAnalysis = analise;
+      state.perfilInvestidor = {
+        ...analise,
+        perfil: obterPerfilExibicao(analise.investorProfile),
+      };
+      window.perfilInvestidor = state.perfilInvestidor;
+      salvarPerfilLocal();
+      renderizarResultadoPerfil();
+      abrirDashboard();
+      dispararFogosDeArtificio();
+      await atualizarDashboardCarteira();
+    } catch (error) {
+      botao.disabled = false;
+      botao.textContent = 'Ver meu perfil';
+      const existente = container.querySelector('.perfil-erro');
+      if (existente) existente.remove();
+      container.querySelector('.perfil-acoes').insertAdjacentHTML('beforebegin', `<p class="perfil-erro error">${error.message}</p>`);
+    }
   });
 }
 
 function renderizarResultadoPerfil() {
   renderizarPerfil();
+  atualizarResumoDashboard();
+}
+
+function iniciarDashboardTabs() {
+  document.querySelectorAll('.tab-button').forEach((button) => {
+    button.addEventListener('click', () => abrirAbaDashboard(button.dataset.tab));
+  });
+}
+
+function abrirAbaDashboard(tab) {
+  if (!document.querySelector(`.dashboard-panel[data-panel="${tab}"]`)) tab = 'overview';
+  document.querySelectorAll('.tab-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.tab === tab);
+  });
+  document.querySelectorAll('.dashboard-panel').forEach((panel) => {
+    panel.classList.toggle('active', panel.dataset.panel === tab);
+  });
+
+  const titulo = document.querySelector('.dashboard-topbar h1');
+  const breadcrumb = document.querySelector('.breadcrumb');
+  const botaoAtivo = document.querySelector(`.tab-button[data-tab="${tab}"]`);
+  if (titulo && botaoAtivo) titulo.textContent = botaoAtivo.textContent;
+  if (breadcrumb && botaoAtivo) breadcrumb.textContent = `Dashboards / ${botaoAtivo.textContent}`;
+  if (tab === 'graficos' || tab === 'overview') renderizarGraficosCarteira();
+  localStorage.setItem(STORAGE_KEY_LAST_TAB, tab);
+}
+
+function abrirDashboard(tabInicial = null) {
+  const onboarding = document.getElementById('onboarding');
+  const dashboard = document.getElementById('dashboardApp');
+  if (onboarding) onboarding.classList.add('dashboard-hidden');
+  if (dashboard) dashboard.classList.remove('dashboard-hidden');
+  abrirAbaDashboard(tabInicial || localStorage.getItem(STORAGE_KEY_LAST_TAB) || 'overview');
+  atualizarResumoDashboard();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function atualizarResumoDashboard() {
+  const perfilNome = document.getElementById('overviewProfileName');
+  const perfilPontuacao = document.getElementById('overviewProfileScore');
+  const totalInvestido = document.getElementById('overviewTotalInvested');
+  const ativosCount = document.getElementById('overviewAssetsCount');
+  const scoreCarteira = document.getElementById('overviewPortfolioScore');
+  const metricas = state.portfolioMetrics;
+  const acoes = document.getElementById('overviewActionList');
+
+  if (perfilNome) perfilNome.textContent = state.perfilInvestidor?.perfil || '-';
+  if (perfilPontuacao) perfilPontuacao.textContent = state.perfilInvestidor ? `Perfil de ${state.perfilInvestidor.userName}` : 'Questionario pendente';
+  if (totalInvestido) totalInvestido.textContent = formatCurrency(metricas?.totalInvested || state.assets.reduce((soma, asset) => soma + Number(asset.value || 0), 0));
+  if (ativosCount) ativosCount.textContent = String(metricas?.assetsCount || state.assets.length || 0);
+  if (scoreCarteira) scoreCarteira.textContent = String(metricas?.score || 0);
+  if (acoes) {
+    const recomendacoes = gerarRecomendacoesAutomaticas(state.perfilInvestidor, state.assets, state.portfolioMetrics).slice(0, 4);
+    acoes.innerHTML = recomendacoes.map((item) => `
+      <article class="action-item ${item.tipo}">
+        <strong>${item.titulo}</strong>
+        <span>${item.descricao}</span>
+      </article>
+    `).join('');
+  }
+}
+
+function iniciarFundoInterativo() {
+  const atualizarMouse = (event) => {
+    const x = (event.clientX / window.innerWidth) * 100;
+    const y = (event.clientY / window.innerHeight) * 100;
+    document.documentElement.style.setProperty('--mouse-x', `${x}%`);
+    document.documentElement.style.setProperty('--mouse-y', `${y}%`);
+    document.documentElement.style.setProperty('--wave-x', ((x - 50) / 8).toFixed(2));
+    document.documentElement.style.setProperty('--wave-y', ((y - 50) / 10).toFixed(2));
+  };
+
+  window.addEventListener('mousemove', atualizarMouse);
+}
+
+function obterCanvasFogos() {
+  if (!fireworksCanvas) {
+    fireworksCanvas = document.createElement('canvas');
+    fireworksCanvas.className = 'fireworks-canvas';
+    document.body.appendChild(fireworksCanvas);
+    fireworksContext = fireworksCanvas.getContext('2d');
+  }
+
+  fireworksCanvas.width = window.innerWidth;
+  fireworksCanvas.height = window.innerHeight;
+  return fireworksCanvas;
+}
+
+function dispararFogosDeArtificio() {
+  const canvas = obterCanvasFogos();
+  const ctx = fireworksContext;
+  const cores = ['#ffe8a3', '#d6a93f', '#ffffff', '#b88623'];
+  const particulas = [];
+  const centroX = canvas.width / 2;
+  const topo = canvas.height * 0.32;
+
+  for (let explosao = 0; explosao < 6; explosao += 1) {
+    const origemX = centroX + (Math.random() - 0.5) * Math.min(canvas.width * 0.7, 760);
+    const origemY = topo + (Math.random() - 0.5) * Math.min(canvas.height * 0.28, 220);
+    for (let i = 0; i < 46; i += 1) {
+      const angulo = (Math.PI * 2 * i) / 46;
+      const velocidade = 1.8 + Math.random() * 4.2;
+      particulas.push({
+        x: origemX,
+        y: origemY,
+        vx: Math.cos(angulo) * velocidade,
+        vy: Math.sin(angulo) * velocidade,
+        vida: 72 + Math.random() * 28,
+        cor: cores[Math.floor(Math.random() * cores.length)],
+        tamanho: 1.4 + Math.random() * 2.6,
+      });
+    }
+  }
+
+  if (fireworksAnimation) cancelAnimationFrame(fireworksAnimation);
+
+  const animar = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'lighter';
+
+    for (let i = particulas.length - 1; i >= 0; i -= 1) {
+      const p = particulas[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.045;
+      p.vx *= 0.985;
+      p.vy *= 0.985;
+      p.vida -= 1;
+
+      const alpha = Math.max(p.vida / 90, 0);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.cor;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.tamanho, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (p.vida <= 0) particulas.splice(i, 1);
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    if (particulas.length) {
+      fireworksAnimation = requestAnimationFrame(animar);
+      return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  animar();
 }
 
 function obterDescricaoCategoria(categoria) {
@@ -466,63 +788,35 @@ function renderizarCamposAtivoPorCategoria(categoria) {
 function renderizarCamposFiis(container) {
   const hoje = new Date().toISOString().split('T')[0];
   container.innerHTML = `
-    <label>Tipo de operacao
-      <select id="assetOperation" required>
-        <option value="compra">Compra</option>
-        <option value="venda" disabled>Venda (em breve)</option>
-      </select>
-    </label>
-    <label>Tipo de ativo
-      <select id="assetFiiAssetType" required>
-        <option value="fundos imobiliarios">Fundos Imobiliarios</option>
-      </select>
-    </label>
-    <label>Fundo imobiliario
-      <select id="assetFiiTicker" required>
-        <option value="">Selecione</option><option value="MXRF11">MXRF11</option><option value="HGLG11">HGLG11</option><option value="KNRI11">KNRI11</option><option value="XPML11">XPML11</option><option value="VISC11">VISC11</option><option value="BCFF11">BCFF11</option><option value="XPLG11">XPLG11</option><option value="HGRU11">HGRU11</option><option value="KNSC11">KNSC11</option><option value="Outra">Outra</option>
-      </select>
-    </label>
-    <label id="assetFiiCustomNameWrapper" style="display:none;">Nome do fundo
-      <input id="assetFiiCustomName" type="text" placeholder="Digite o nome do fundo" />
-    </label>
-    <label>Data da compra
-      <input id="assetPurchaseDate" type="date" value="${hoje}" required />
-    </label>
-    <label>Quantidade de cotas
-      <input id="assetQuantity" type="number" min="1" step="1" required />
-    </label>
-    <label>Preco em R$
-      <input id="assetUnitPrice" type="number" min="0.01" step="0.01" required />
-    </label>
-    <label>Outros custos (R$)
-      <input id="assetOtherCosts" type="number" min="0" step="0.01" value="0" />
-    </label>
-    <label>Valor total
-      <input id="assetTotalValueDisplay" type="text" value="${formatCurrency(0)}" disabled />
-      <input id="assetValue" type="hidden" value="0" />
-    </label>
-    <label>Tipo de FII
-      <select id="assetFiiType" required>
-        <option value="">Selecione</option><option value="papel">Papel</option><option value="tijolo">Tijolo</option><option value="hibrido">Hibrido</option><option value="fundo de fundos">Fundo de fundos</option><option value="desenvolvimento">Desenvolvimento</option><option value="outro">Outro</option>
-      </select>
-    </label>
-    <label>Segmento
-      <select id="assetSegment" required>
-        <option value="">Selecione</option><option value="recebiveis">Recebiveis</option><option value="logistica">Logistica</option><option value="shopping">Shopping</option><option value="lajes corporativas">Lajes corporativas</option><option value="galpoes">Galpoes</option><option value="renda urbana">Renda urbana</option><option value="hibrido">Hibrido</option><option value="fundo de fundos">Fundo de fundos</option><option value="outros">Outros</option>
-      </select>
-    </label>
-    <label>Dividend yield mensal estimado (%)
-      <input id="assetDyMonthly" type="text" placeholder="Ex: 0,8" />
-    </label>
-    <label>Objetivo do ativo
-      <select id="assetObjective" required>
-        <option value="">Selecione</option><option value="renda mensal">Renda mensal</option><option value="diversificacao">Diversificacao</option><option value="longo prazo">Longo prazo</option><option value="especulacao">Especulacao</option>
-      </select>
-    </label>
-    <label>Nivel de risco
-      <input id="assetRiskDisplay" type="text" value="Medio" disabled />
-      <input id="assetRisk" type="hidden" value="medio" />
-    </label>
+    <div class="asset-entry-shell asset-entry-fiis">
+      <div class="asset-entry-header">
+        <div><span class="section-kicker">Fundos imobiliarios</span><strong>Dados do fundo</strong></div>
+        <span class="asset-entry-chip">Renda recorrente</span>
+      </div>
+      <div class="asset-entry-section">
+        <div class="asset-entry-section-title"><strong>Identificacao</strong><span>Selecione o fundo e classifique seu segmento.</span></div>
+        <label>Tipo de operacao<select id="assetOperation" required><option value="compra">Compra</option><option value="venda" disabled>Venda (em breve)</option></select></label>
+        <label>Tipo de ativo<select id="assetFiiAssetType" required><option value="fundos imobiliarios">Fundos Imobiliarios</option></select></label>
+        <label>Fundo imobiliario<select id="assetFiiTicker" required><option value="">Selecione</option><option value="MXRF11">MXRF11</option><option value="HGLG11">HGLG11</option><option value="KNRI11">KNRI11</option><option value="XPML11">XPML11</option><option value="VISC11">VISC11</option><option value="BCFF11">BCFF11</option><option value="XPLG11">XPLG11</option><option value="HGRU11">HGRU11</option><option value="KNSC11">KNSC11</option><option value="Outra">Outra</option></select></label>
+        <label id="assetFiiCustomNameWrapper" style="display:none;">Nome do fundo<input id="assetFiiCustomName" type="text" placeholder="Digite o nome do fundo" /></label>
+        <label>Tipo de FII<select id="assetFiiType" required><option value="">Selecione</option><option value="papel">Papel</option><option value="tijolo">Tijolo</option><option value="hibrido">Hibrido</option><option value="fundo de fundos">Fundo de fundos</option><option value="desenvolvimento">Desenvolvimento</option><option value="outro">Outro</option></select></label>
+        <label>Segmento<select id="assetSegment" required><option value="">Selecione</option><option value="recebiveis">Recebiveis</option><option value="logistica">Logistica</option><option value="shopping">Shopping</option><option value="lajes corporativas">Lajes corporativas</option><option value="galpoes">Galpoes</option><option value="renda urbana">Renda urbana</option><option value="hibrido">Hibrido</option><option value="fundo de fundos">Fundo de fundos</option><option value="outros">Outros</option></select></label>
+      </div>
+      <div class="asset-entry-section">
+        <div class="asset-entry-section-title"><strong>Compra e renda</strong><span>Preencha quantidade, preco medio e renda estimada.</span></div>
+        <label>Data da compra<input id="assetPurchaseDate" type="date" value="${hoje}" required /></label>
+        <label>Quantidade de cotas<input id="assetQuantity" type="number" min="1" step="1" required /></label>
+        <label>Preco por cota<input id="assetUnitPrice" type="number" min="0.01" step="0.01" required /></label>
+        <label>Outros custos<input id="assetOtherCosts" type="number" min="0" step="0.01" value="0" /></label>
+        <label>Dividend yield mensal<input id="assetDyMonthly" type="text" placeholder="Ex: 0,8" /></label>
+        <label>Objetivo do ativo<select id="assetObjective" required><option value="">Selecione</option><option value="renda mensal">Renda mensal</option><option value="diversificacao">Diversificacao</option><option value="longo prazo">Longo prazo</option><option value="especulacao">Especulacao</option></select></label>
+      </div>
+      <div class="asset-entry-summary">
+        <label>Valor total<input id="assetTotalValueDisplay" type="text" value="${formatCurrency(0)}" disabled /><input id="assetValue" type="hidden" value="0" /></label>
+        <label>Nivel de risco<input id="assetRiskDisplay" type="text" value="Medio" disabled /><input id="assetRisk" type="hidden" value="medio" /></label>
+        <div class="asset-summary-note"><strong>Liquidez</strong><span>FIIs costumam ter negociacao em bolsa.</span></div>
+      </div>
+    </div>
   `;
 
   const tickerEl = container.querySelector('#assetFiiTicker');
@@ -688,60 +982,97 @@ function formatarDetalhesFiis(ativo) {
 function renderizarCamposRendaFixa(container) {
   const hoje = new Date().toISOString().split('T')[0];
   container.innerHTML = `
-    <label>Tipo de operacao
-      <select id="assetOperation" required>
-        <option value="compra">Compra</option>
-        <option value="venda" disabled>Venda (em breve)</option>
-      </select>
-    </label>
-    <label>Tipo de ativo
-      <select id="assetFixedIncomeType" required>
-        <option value="">Selecione</option><option value="tesouro direto">Tesouro Direto</option><option value="cdb">CDB</option><option value="lci">LCI</option><option value="lca">LCA</option><option value="lc">LC</option><option value="lf">LF</option><option value="rdb">RDB</option><option value="debenture">Debenture</option><option value="cri">CRI</option><option value="cra">CRA</option><option value="outro">Outro</option>
-      </select>
-    </label>
-    <label>Emissor
-      <input id="assetIssuer" type="text" placeholder="Ex: Banco Inter, Tesouro Nacional, BTG Pactual" required />
-      <small class="field-help">Use o nome que voce reconhece na sua corretora ou banco.</small>
-    </label>
-    <label>Nome do titulo
-      <input id="assetName" type="text" placeholder="Ex: CDB Banco Inter 110% CDI" required />
-    </label>
-    <label>Indexador
-      <select id="assetIndexer" required>
-        <option value="">Selecione</option><option value="cdi">CDI</option><option value="cdi+">CDI+</option><option value="ipca+">IPCA+</option><option value="prefixado">Prefixado</option><option value="selic">Selic</option><option value="outro">Outro</option>
-      </select>
-    </label>
-    <div id="assetYieldDynamicFields" class="dynamic-fields"></div>
-    <label>Forma
-      <select id="assetForm" required>
-        <option value="">Selecione</option><option value="pos-fixado">Pos-fixado</option><option value="prefixado">Prefixado</option><option value="hibrido">Hibrido</option>
-      </select>
-    </label>
-    <label>Valor investido (R$)
-      <input id="assetValue" type="number" min="0.01" step="0.01" required />
-      <small class="field-help">Informe quanto voce possui aplicado nesse ativo.</small>
-    </label>
-    <label>Data da compra
-      <input id="assetPurchaseDate" type="date" value="${hoje}" required />
-    </label>
-    <label>Liquidez diaria
-      <input id="assetDailyLiquidity" type="checkbox" />
-    </label>
-    <label>Data de vencimento
-      <input id="assetMaturity" type="date" required />
-    </label>
-    <label>Garantia FGC
-      <select id="assetFGC" required>
-        <option value="">Selecione</option><option value="sim">Sim</option><option value="nao">Nao</option><option value="nao se aplica">Nao se aplica</option>
-      </select>
-    </label>
-    <label>Nivel de risco (automatico)
-      <input id="assetRiskDisplay" type="text" disabled />
-      <input id="assetRisk" type="hidden" />
-    </label>
-    <label>Valor total (resumo)
-      <input id="assetTotalValueDisplay" type="text" value="${formatCurrency(0)}" disabled />
-    </label>
+    <div class="fixed-income-shell">
+      <div class="fixed-income-header">
+        <div>
+          <span class="section-kicker">Renda fixa</span>
+          <strong>Detalhes do titulo</strong>
+        </div>
+        <span class="fixed-income-chip">Baixa volatilidade</span>
+      </div>
+
+      <div class="fixed-income-section">
+        <div class="fixed-income-section-title">
+          <strong>Identificacao</strong>
+          <span>Informe como o ativo aparece na corretora.</span>
+        </div>
+        <label>Tipo de operacao
+          <select id="assetOperation" required>
+            <option value="compra">Compra</option>
+            <option value="venda" disabled>Venda (em breve)</option>
+          </select>
+        </label>
+        <label>Tipo de ativo
+          <select id="assetFixedIncomeType" required>
+            <option value="">Selecione</option><option value="tesouro direto">Tesouro Direto</option><option value="cdb">CDB</option><option value="lci">LCI</option><option value="lca">LCA</option><option value="lc">LC</option><option value="lf">LF</option><option value="rdb">RDB</option><option value="debenture">Debenture</option><option value="cri">CRI</option><option value="cra">CRA</option><option value="outro">Outro</option>
+          </select>
+        </label>
+        <label>Emissor
+          <input id="assetIssuer" type="text" placeholder="Banco, tesouro ou instituicao" required />
+        </label>
+        <label>Nome do titulo
+          <input id="assetName" type="text" placeholder="Ex: CDB 110% CDI" required />
+        </label>
+      </div>
+
+      <div class="fixed-income-section">
+        <div class="fixed-income-section-title">
+          <strong>Rentabilidade</strong>
+          <span>Defina indexador, forma e taxa contratada.</span>
+        </div>
+        <label>Indexador
+          <select id="assetIndexer" required>
+            <option value="">Selecione</option><option value="cdi">CDI</option><option value="cdi+">CDI+</option><option value="ipca+">IPCA+</option><option value="prefixado">Prefixado</option><option value="selic">Selic</option><option value="outro">Outro</option>
+          </select>
+        </label>
+        <label>Forma
+          <select id="assetForm" required>
+            <option value="">Selecione</option><option value="pos-fixado">Pos-fixado</option><option value="prefixado">Prefixado</option><option value="hibrido">Hibrido</option>
+          </select>
+        </label>
+        <div id="assetYieldDynamicFields" class="dynamic-fields fixed-income-yield-fields"></div>
+      </div>
+
+      <div class="fixed-income-section">
+        <div class="fixed-income-section-title">
+          <strong>Valores e prazo</strong>
+          <span>Esses campos alimentam o resumo da carteira.</span>
+        </div>
+        <label>Valor investido
+          <input id="assetValue" type="number" min="0.01" step="0.01" placeholder="R$ 0,00" required />
+        </label>
+        <label>Data da compra
+          <input id="assetPurchaseDate" type="date" value="${hoje}" required />
+        </label>
+        <label id="assetMaturityWrapper">Data de vencimento
+          <input id="assetMaturity" type="date" required />
+          <small class="field-help">Obrigatoria quando nao houver liquidez diaria.</small>
+        </label>
+        <label class="premium-toggle fixed-income-toggle">
+          <input id="assetDailyLiquidity" type="checkbox" />
+          <span class="toggle-control" aria-hidden="true"></span>
+          <span>
+            <strong>Liquidez diaria</strong>
+            <small>Permite resgate antes do vencimento.</small>
+          </span>
+        </label>
+      </div>
+
+      <div class="fixed-income-summary">
+        <label>Garantia FGC
+          <select id="assetFGC" required>
+            <option value="">Selecione</option><option value="sim">Sim</option><option value="nao">Nao</option><option value="nao se aplica">Nao se aplica</option>
+          </select>
+        </label>
+        <label>Nivel de risco
+          <input id="assetRiskDisplay" type="text" disabled />
+          <input id="assetRisk" type="hidden" />
+        </label>
+        <label>Valor total
+          <input id="assetTotalValueDisplay" type="text" value="${formatCurrency(0)}" disabled />
+        </label>
+      </div>
+    </div>
   `;
 
   const typeEl = container.querySelector('#assetFixedIncomeType');
@@ -753,6 +1084,7 @@ function renderizarCamposRendaFixa(container) {
   const issuerEl = container.querySelector('#assetIssuer');
   const dailyLiqEl = container.querySelector('#assetDailyLiquidity');
   const maturityEl = container.querySelector('#assetMaturity');
+  const maturityWrapperEl = container.querySelector('#assetMaturityWrapper');
   const valueEl = container.querySelector('#assetValue');
   const totalDisplayEl = container.querySelector('#assetTotalValueDisplay');
 
@@ -774,6 +1106,9 @@ function renderizarCamposRendaFixa(container) {
 
   const atualizarLiquidez = () => {
     maturityEl.required = !dailyLiqEl.checked;
+    maturityEl.disabled = dailyLiqEl.checked;
+    maturityWrapperEl.classList.toggle('field-muted', dailyLiqEl.checked);
+    if (dailyLiqEl.checked) maturityEl.value = '';
   };
 
   typeEl.addEventListener('change', () => {
@@ -802,55 +1137,33 @@ function renderizarCamposRendaFixa(container) {
 function renderizarCamposAcoes(container) {
   const hoje = new Date().toISOString().split('T')[0];
   container.innerHTML = `
-    <label>Tipo de operacao
-      <select id="assetOperation" required>
-        <option value="compra">Compra</option>
-        <option value="venda" disabled>Venda (em breve)</option>
-      </select>
-    </label>
-    <label>Tipo de ativo
-      <select id="assetStockType" required>
-        <option value="acoes">Acoes</option>
-      </select>
-    </label>
-    <label>Ativo
-      <select id="assetTicker" required>
-        <option value="">Selecione</option><option value="PETR4">PETR4</option><option value="VALE3">VALE3</option><option value="ITUB4">ITUB4</option><option value="BBAS3">BBAS3</option><option value="WEGE3">WEGE3</option><option value="BBDC4">BBDC4</option><option value="ABEV3">ABEV3</option><option value="MGLU3">MGLU3</option><option value="Outra">Outra</option>
-      </select>
-    </label>
-    <label id="assetStockCustomNameWrapper" style="display:none;">Nome da acao / empresa
-      <input id="assetStockCustomName" type="text" placeholder="Digite o nome da acao ou empresa" />
-    </label>
-    <label>Data da compra
-      <input id="assetPurchaseDate" type="date" value="${hoje}" required />
-    </label>
-    <label>Quantidade
-      <input id="assetQuantity" type="number" min="1" step="1" required />
-    </label>
-    <label>Preco em R$
-      <input id="assetUnitPrice" type="number" min="0.01" step="0.01" required />
-    </label>
-    <label>Outros custos (R$)
-      <input id="assetOtherCosts" type="number" min="0" step="0.01" value="0" />
-    </label>
-    <label>Valor total
-      <input id="assetTotalValueDisplay" type="text" value="${formatCurrency(0)}" disabled />
-      <input id="assetValue" type="hidden" value="0" />
-    </label>
-    <label>Objetivo do ativo
-      <select id="assetObjective" required>
-        <option value="">Selecione</option><option value="dividendos">Dividendos</option><option value="crescimento">Crescimento</option><option value="longo prazo">Longo prazo</option><option value="especulacao">Especulacao</option>
-      </select>
-    </label>
-    <label>Setor
-      <select id="assetSector" required>
-        <option value="">Selecione</option><option value="bancos">Bancos</option><option value="energia">Energia</option><option value="commodities">Commodities</option><option value="consumo">Consumo</option><option value="tecnologia">Tecnologia</option><option value="varejo">Varejo</option><option value="saude">Saude</option><option value="industrial">Industrial</option><option value="outros">Outros</option>
-      </select>
-    </label>
-    <label>Nivel de risco
-      <input id="assetRiskDisplay" type="text" value="Medio" disabled />
-      <input id="assetRisk" type="hidden" value="medio" />
-    </label>
+    <div class="asset-entry-shell asset-entry-stocks">
+      <div class="asset-entry-header">
+        <div><span class="section-kicker">Acoes</span><strong>Dados da empresa</strong></div>
+        <span class="asset-entry-chip">Bolsa de valores</span>
+      </div>
+      <div class="asset-entry-section">
+        <div class="asset-entry-section-title"><strong>Identificacao</strong><span>Selecione o ticker, setor e objetivo da posicao.</span></div>
+        <label>Tipo de operacao<select id="assetOperation" required><option value="compra">Compra</option><option value="venda" disabled>Venda (em breve)</option></select></label>
+        <label>Tipo de ativo<select id="assetStockType" required><option value="acoes">Acoes</option></select></label>
+        <label>Ativo<select id="assetTicker" required><option value="">Selecione</option><option value="PETR4">PETR4</option><option value="VALE3">VALE3</option><option value="ITUB4">ITUB4</option><option value="BBAS3">BBAS3</option><option value="WEGE3">WEGE3</option><option value="BBDC4">BBDC4</option><option value="ABEV3">ABEV3</option><option value="MGLU3">MGLU3</option><option value="Outra">Outra</option></select></label>
+        <label id="assetStockCustomNameWrapper" style="display:none;">Nome da acao / empresa<input id="assetStockCustomName" type="text" placeholder="Digite o nome da acao ou empresa" /></label>
+        <label>Setor<select id="assetSector" required><option value="">Selecione</option><option value="bancos">Bancos</option><option value="energia">Energia</option><option value="commodities">Commodities</option><option value="consumo">Consumo</option><option value="tecnologia">Tecnologia</option><option value="varejo">Varejo</option><option value="saude">Saude</option><option value="industrial">Industrial</option><option value="outros">Outros</option></select></label>
+        <label>Objetivo do ativo<select id="assetObjective" required><option value="">Selecione</option><option value="dividendos">Dividendos</option><option value="crescimento">Crescimento</option><option value="longo prazo">Longo prazo</option><option value="especulacao">Especulacao</option></select></label>
+      </div>
+      <div class="asset-entry-section">
+        <div class="asset-entry-section-title"><strong>Compra</strong><span>Preencha quantidade, preco medio e custos.</span></div>
+        <label>Data da compra<input id="assetPurchaseDate" type="date" value="${hoje}" required /></label>
+        <label>Quantidade<input id="assetQuantity" type="number" min="1" step="1" required /></label>
+        <label>Preco por acao<input id="assetUnitPrice" type="number" min="0.01" step="0.01" required /></label>
+        <label>Outros custos<input id="assetOtherCosts" type="number" min="0" step="0.01" value="0" /></label>
+      </div>
+      <div class="asset-entry-summary">
+        <label>Valor total<input id="assetTotalValueDisplay" type="text" value="${formatCurrency(0)}" disabled /><input id="assetValue" type="hidden" value="0" /></label>
+        <label>Nivel de risco<input id="assetRiskDisplay" type="text" value="Medio" disabled /><input id="assetRisk" type="hidden" value="medio" /></label>
+        <div class="asset-summary-note"><strong>Liquidez</strong><span>Ativo negociado em mercado secundario.</span></div>
+      </div>
+    </div>
   `;
 
   const tickerEl = container.querySelector('#assetTicker');
@@ -1047,50 +1360,32 @@ function validarRendaFixa(dados) {
 function renderizarCamposCripto(container) {
   const hoje = new Date().toISOString().split('T')[0];
   container.innerHTML = `
-    <label>Tipo de operacao
-      <select id="assetOperation" required>
-        <option value="compra">Compra</option>
-        <option value="venda" disabled>Venda (em breve)</option>
-      </select>
-    </label>
-    <label>Tipo de ativo
-      <select id="assetCryptoType" required>
-        <option value="criptomoedas">Criptomoedas</option>
-      </select>
-    </label>
-    <label>Ativo
-      <select id="assetCryptoName" required>
-        <option value="">Selecione</option><option value="Bitcoin">Bitcoin</option><option value="Ethereum">Ethereum</option><option value="Solana">Solana</option><option value="BNB">BNB</option><option value="XRP">XRP</option><option value="Cardano">Cardano</option><option value="Dogecoin">Dogecoin</option><option value="Outra">Outra</option>
-      </select>
-    </label>
-    <label id="assetCryptoCustomNameWrapper" style="display:none;">Nome da criptomoeda
-      <input id="assetCryptoCustomName" type="text" placeholder="Digite o nome da criptomoeda" />
-    </label>
-    <label>Data da compra
-      <input id="assetPurchaseDate" type="date" value="${hoje}" required />
-    </label>
-    <label>Quantidade
-      <input id="assetQuantity" type="number" min="0.00000001" step="0.00000001" required />
-    </label>
-    <label>Preco em R$
-      <input id="assetUnitPrice" type="number" min="0.01" step="0.01" required />
-    </label>
-    <label>Outros custos (R$)
-      <input id="assetOtherCosts" type="number" min="0" step="0.01" value="0" />
-    </label>
-    <label>Valor total
-      <input id="assetTotalValueDisplay" type="text" value="${formatCurrency(0)}" disabled />
-      <input id="assetValue" type="hidden" value="0" />
-    </label>
-    <label>Objetivo do ativo
-      <select id="assetObjective" required>
-        <option value="">Selecione</option><option value="reserva de valor">Reserva de valor</option><option value="longo prazo">Longo prazo</option><option value="especulacao">Especulacao</option>
-      </select>
-    </label>
-    <label>Nivel de risco
-      <input id="assetRiskDisplay" type="text" value="Alto" disabled />
-      <input id="assetRisk" type="hidden" value="alto" />
-    </label>
+    <div class="asset-entry-shell asset-entry-crypto">
+      <div class="asset-entry-header">
+        <div><span class="section-kicker">Cripto</span><strong>Dados do ativo digital</strong></div>
+        <span class="asset-entry-chip danger">Alta volatilidade</span>
+      </div>
+      <div class="asset-entry-section">
+        <div class="asset-entry-section-title"><strong>Identificacao</strong><span>Registre o ativo, objetivo e data da compra.</span></div>
+        <label>Tipo de operacao<select id="assetOperation" required><option value="compra">Compra</option><option value="venda" disabled>Venda (em breve)</option></select></label>
+        <label>Tipo de ativo<select id="assetCryptoType" required><option value="criptomoedas">Criptomoedas</option></select></label>
+        <label>Ativo<select id="assetCryptoName" required><option value="">Selecione</option><option value="Bitcoin">Bitcoin</option><option value="Ethereum">Ethereum</option><option value="Solana">Solana</option><option value="BNB">BNB</option><option value="XRP">XRP</option><option value="Cardano">Cardano</option><option value="Dogecoin">Dogecoin</option><option value="Outra">Outra</option></select></label>
+        <label id="assetCryptoCustomNameWrapper" style="display:none;">Nome da criptomoeda<input id="assetCryptoCustomName" type="text" placeholder="Digite o nome da criptomoeda" /></label>
+        <label>Objetivo do ativo<select id="assetObjective" required><option value="">Selecione</option><option value="reserva de valor">Reserva de valor</option><option value="longo prazo">Longo prazo</option><option value="especulacao">Especulacao</option></select></label>
+      </div>
+      <div class="asset-entry-section">
+        <div class="asset-entry-section-title"><strong>Compra</strong><span>Use o preco medio em reais e custos da operacao.</span></div>
+        <label>Data da compra<input id="assetPurchaseDate" type="date" value="${hoje}" required /></label>
+        <label>Quantidade<input id="assetQuantity" type="number" min="0.00000001" step="0.00000001" required /></label>
+        <label>Preco em R$<input id="assetUnitPrice" type="number" min="0.01" step="0.01" required /></label>
+        <label>Outros custos<input id="assetOtherCosts" type="number" min="0" step="0.01" value="0" /></label>
+      </div>
+      <div class="asset-entry-summary">
+        <label>Valor total<input id="assetTotalValueDisplay" type="text" value="${formatCurrency(0)}" disabled /><input id="assetValue" type="hidden" value="0" /></label>
+        <label>Nivel de risco<input id="assetRiskDisplay" type="text" value="Alto" disabled /><input id="assetRisk" type="hidden" value="alto" /></label>
+        <div class="asset-summary-note danger"><strong>Atenção</strong><span>Categoria sensivel a volatilidade e concentracao.</span></div>
+      </div>
+    </div>
   `;
 
   const ativoEl = container.querySelector('#assetCryptoName');
@@ -1305,30 +1600,40 @@ function montarAtivoPorCategoria(categoria) {
 }
 
 function dadosPrincipaisAtivo(asset) {
-  if (asset.category === 'acoes') {
+  const categoria = normalizarCategoria(asset.category || asset.categoria);
+  if (categoria === 'acoes') {
     return formatarDetalhesAcoes(asset);
   }
-  if (asset.category === 'renda fixa') {
+  if (categoria === 'renda fixa') {
     const compra = asset.purchaseDate ? new Date(`${asset.purchaseDate}T00:00:00`).toLocaleDateString('pt-BR') : '-';
     const vencimento = asset.maturityDate && asset.maturityDate !== 'Sem vencimento'
       ? new Date(`${asset.maturityDate}T00:00:00`).toLocaleDateString('pt-BR')
       : 'Sem vencimento';
     return `Tipo: ${asset.fixedIncomeType || asset.titleType}<br>Emissor: ${asset.issuer || '-'}<br>Indexador: ${asset.indexer || '-'}<br>Rentabilidade: ${asset.yieldInfo}<br>Forma: ${asset.form || '-'}<br>Liquidez: ${asset.liquidity === 'diaria' ? 'Diaria' : 'No vencimento'}<br>Vencimento: ${vencimento}<br>FGC: ${asset.fgc}<br>Compra: ${compra}`;
   }
-  if (asset.category === 'cripto') {
+  if (categoria === 'cripto') {
     return formatarDetalhesCripto(asset);
   }
-  if (asset.category === 'fundos imobiliarios') {
+  if (categoria === 'fundos imobiliarios') {
     return formatarDetalhesFiis(asset);
   }
   return '-';
 }
 
+function obterResumoDetalhesAtivo(asset) {
+  const detalhes = dadosPrincipaisAtivo(asset)
+    .split('<br>')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return detalhes.slice(0, 4);
+}
+
 function obterPerfilAtivoTabela(asset) {
-  if (asset.category === 'acoes') return asset.objective || '-';
-  if (asset.category === 'renda fixa') return asset.titleType || '-';
-  if (asset.category === 'cripto') return asset.objective || '-';
-  if (asset.category === 'fundos imobiliarios') return asset.objective || asset.fiiType || '-';
+  const categoria = normalizarCategoria(asset.category || asset.categoria);
+  if (categoria === 'acoes') return asset.objective || '-';
+  if (categoria === 'renda fixa') return asset.titleType || '-';
+  if (categoria === 'cripto') return asset.objective || '-';
+  if (categoria === 'fundos imobiliarios') return asset.objective || asset.fiiType || '-';
   return '-';
 }
 
@@ -1404,6 +1709,103 @@ async function removerAtivo(id) {
   await atualizarDashboardCarteira();
 }
 
+function setCampoValor(id, valor) {
+  const el = document.getElementById(id);
+  if (!el || valor === undefined || valor === null) return;
+  if (el.type === 'checkbox') el.checked = Boolean(valor);
+  else el.value = String(valor);
+  el.dispatchEvent(new Event(el.type === 'checkbox' ? 'change' : 'input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function preencherFormularioEdicaoAtivo(asset) {
+  setCampoValor('assetOperation', asset.operation || asset.operacao || 'compra');
+  setCampoValor('assetPurchaseDate', asset.purchaseDate || asset.dataCompra || '');
+  setCampoValor('assetQuantity', asset.quantity || asset.quantidadeCotas || '');
+  setCampoValor('assetUnitPrice', asset.unitPrice || asset.precoUnitario || asset.averagePrice || '');
+  setCampoValor('assetOtherCosts', asset.otherCosts || asset.outrosCustos || 0);
+  setCampoValor('assetObjective', asset.objective || asset.objetivo || '');
+
+  const categoria = normalizarCategoria(asset.category || asset.categoria);
+
+  if (categoria === 'acoes') {
+    const tickerConhecido = ['PETR4', 'VALE3', 'ITUB4', 'BBAS3', 'WEGE3', 'BBDC4', 'ABEV3', 'MGLU3'].includes(asset.stockTicker || asset.ticker || asset.name);
+    setCampoValor('assetTicker', tickerConhecido ? (asset.stockTicker || asset.ticker || asset.name) : 'Outra');
+    if (!tickerConhecido) setCampoValor('assetStockCustomName', asset.name);
+    setCampoValor('assetSector', asset.sector || asset.setor || '');
+    calcularValorTotalAcoes();
+    return;
+  }
+
+  if (categoria === 'cripto') {
+    const criptoConhecida = ['Bitcoin', 'Ethereum', 'Solana', 'BNB', 'XRP', 'Cardano', 'Dogecoin'].includes(asset.cryptoAsset || asset.name);
+    setCampoValor('assetCryptoName', criptoConhecida ? (asset.cryptoAsset || asset.name) : 'Outra');
+    if (!criptoConhecida) setCampoValor('assetCryptoCustomName', asset.name);
+    calcularValorTotalCripto();
+    return;
+  }
+
+  if (categoria === 'fundos imobiliarios') {
+    const fiiConhecido = ['MXRF11', 'HGLG11', 'KNRI11', 'XPML11', 'VISC11', 'BCFF11', 'XPLG11', 'HGRU11', 'KNSC11'].includes(asset.fiiTicker || asset.name);
+    setCampoValor('assetFiiTicker', fiiConhecido ? (asset.fiiTicker || asset.name) : 'Outra');
+    if (!fiiConhecido) setCampoValor('assetFiiCustomName', asset.name);
+    setCampoValor('assetFiiType', asset.fiiType || asset.tipoFii || '');
+    setCampoValor('assetSegment', asset.segment || asset.segmento || '');
+    setCampoValor('assetDyMonthly', asset.dyMonthly ?? asset.dividendYieldMensal ?? '');
+    calcularValorTotalFiis();
+    return;
+  }
+
+  if (categoria === 'renda fixa') {
+    setCampoValor('assetFixedIncomeType', asset.fixedIncomeType || asset.titleType || '');
+    setCampoValor('assetIssuer', asset.issuer || asset.emissor || '');
+    setCampoValor('assetName', asset.name || asset.nome || '');
+    setCampoValor('assetIndexer', asset.indexer || asset.indexador || '');
+    const rentabilidade = asset.rentabilidade || {};
+    setCampoValor('assetCdiPercent', rentabilidade.percentualCdi ?? '');
+    setCampoValor('assetAdditionalRate', rentabilidade.taxaAdicional ?? '');
+    setCampoValor('assetIpcaRate', rentabilidade.taxaIpca ?? '');
+    setCampoValor('assetPrefixedRate', rentabilidade.taxaPrefixada ?? '');
+    setCampoValor('assetSelicPercent', rentabilidade.percentualSelic ?? '');
+    setCampoValor('assetYieldDescription', rentabilidade.descricao ?? '');
+    setCampoValor('assetForm', asset.form || asset.forma || '');
+    setCampoValor('assetValue', asset.value || asset.valorInvestido || '');
+    setCampoValor('assetDailyLiquidity', asset.liquidityDaily || asset.liquidezDiaria || asset.liquidity === 'diaria');
+    setCampoValor('assetMaturity', asset.maturityDate === 'Sem vencimento' ? '' : asset.maturityDate);
+    setCampoValor('assetFGC', asset.fgc || '');
+    const totalDisplayEl = document.getElementById('assetTotalValueDisplay');
+    if (totalDisplayEl) totalDisplayEl.value = formatCurrency(asset.value || 0);
+  }
+}
+
+function iniciarEdicaoAtivo(index) {
+  const asset = state.assets[index];
+  if (!asset) return;
+  ativoEmEdicaoIndex = index;
+  abrirAbaDashboard('ativos');
+
+  const categoria = normalizarCategoria(asset.category || asset.categoria);
+  const select = document.getElementById('assetCategory');
+  select.value = categoria;
+  document.querySelectorAll('.asset-type-card').forEach((card) => card.classList.toggle('active', card.dataset.assetCategory === categoria));
+  renderizarCamposAtivoPorCategoria(categoria);
+  preencherFormularioEdicaoAtivo({ ...asset, category: categoria });
+
+  const submit = document.querySelector('.asset-submit-btn');
+  if (submit) submit.textContent = 'Salvar alteracoes';
+  document.getElementById('assetForm')?.classList.add('asset-form-editing');
+  document.getElementById('assetCancelEditBtn')?.classList.remove('dashboard-hidden');
+  setMessage(document.getElementById('assetMessage'), `Editando ${asset.name}. Ajuste os campos e salve as alteracoes.`, 'success');
+}
+
+function encerrarEdicaoAtivo() {
+  ativoEmEdicaoIndex = null;
+  const submit = document.querySelector('.asset-submit-btn');
+  if (submit) submit.textContent = 'Adicionar ativo';
+  document.getElementById('assetForm')?.classList.remove('asset-form-editing');
+  document.getElementById('assetCancelEditBtn')?.classList.add('dashboard-hidden');
+}
+
 function obterClassificacaoScore(score) {
   if (score <= 39) return 'Carteira desorganizada';
   if (score <= 59) return 'Carteira fragil';
@@ -1421,27 +1823,104 @@ function obterDiagnosticoScore(score, metricas) {
   return 'Carteira bem estruturada, mas ainda com pontos de melhoria.';
 }
 
+function obterNivelScore(score) {
+  if (score <= 39) return 'critico';
+  if (score <= 59) return 'atencao';
+  if (score <= 79) return 'bom';
+  return 'excelente';
+}
+
+function obterMensagemExecutivaMetricas(score, metricas) {
+  if (score <= 39) return 'A carteira precisa de ajustes estruturais antes de crescer: diversificacao, concentracao e risco devem ser revisados.';
+  if (score <= 59) return 'A carteira ja possui base, mas ainda esta vulneravel a concentracao ou baixa diversificacao.';
+  if (metricas.maxConcentrationPercent >= 35) return 'A estrutura esta razoavel, com atencao especial para o ativo mais concentrado.';
+  return 'A carteira apresenta boa organizacao inicial. Continue acompanhando concentracao, liquidez e risco por categoria.';
+}
+
 function renderizarCarteira() {
   const body = document.getElementById('portfolioTableBody');
+  const cards = document.getElementById('portfolioCards');
 
   if (state.assets.length === 0) {
     body.innerHTML = '<tr><td colspan="7" class="empty-row">Nenhum ativo cadastrado. Escolha uma categoria e adicione seu primeiro ativo.</td></tr>';
+    if (cards) cards.innerHTML = '<div class="portfolio-empty-card"><strong>Nenhum investimento cadastrado</strong><span>Adicione ativos para montar a visualizacao premium da carteira.</span></div>';
     return;
   }
 
+  const total = state.assets.reduce((soma, asset) => soma + Number(asset.value || 0), 0);
+  if (cards) {
+    cards.innerHTML = state.assets.map((asset, index) => {
+      const categoria = normalizarCategoria(asset.category || asset.categoria);
+      const risco = normalizarRisco(asset.risk || asset.risco);
+      const valor = Number(asset.value || 0);
+      const percentual = total > 0 ? (valor / total) * 100 : 0;
+      const detalhes = obterResumoDetalhesAtivo(asset).slice(0, 3);
+      return `
+        <article class="portfolio-card-item risk-card-${risco}">
+          <div class="portfolio-card-top">
+            <span class="portfolio-category-badge">${formatarCategoriaAtivo(categoria)}</span>
+            <span class="risk-badge risk-${risco}">${asset.risk || asset.risco}</span>
+          </div>
+          <div>
+            <h3>${asset.name}</h3>
+            <p>${asset.ticker || asset.tipoAtivo || asset.type || 'Ativo cadastrado'}</p>
+          </div>
+          <strong class="portfolio-card-value">${formatCurrency(valor)}</strong>
+          <div class="portfolio-card-progress"><div style="width:${Math.min(100, percentual)}%"></div></div>
+          <div class="portfolio-card-meta">
+            <span>${formatarPercentual(percentual)} da carteira</span>
+            <span>${obterPerfilAtivoTabela(asset)}</span>
+          </div>
+          <div class="portfolio-card-details">${detalhes.map((detalhe) => `<span>${detalhe}</span>`).join('')}</div>
+          <div class="portfolio-card-actions">
+            <button type="button" class="edit-btn" data-index="${index}">Editar</button>
+            <button type="button" class="remove-btn" data-index="${index}">Remover</button>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
   body.innerHTML = state.assets.map((asset, index) => {
+    const categoria = normalizarCategoria(asset.category || asset.categoria);
+    const detalhes = obterResumoDetalhesAtivo(asset);
+    const risco = normalizarRisco(asset.risk || asset.risco);
     return `
-      <tr>
-        <td>${formatarCategoriaAtivo(asset.category)}</td>
-        <td>${asset.name}</td>
-        <td>${formatCurrency(asset.value)}</td>
-        <td>${obterPerfilAtivoTabela(asset)}</td>
-        <td>${asset.risk}</td>
-        <td class="asset-details">${dadosPrincipaisAtivo(asset)}</td>
-        <td><button class="remove-btn" data-index="${index}">Remover</button></td>
+      <tr class="portfolio-row">
+        <td>
+          <span class="portfolio-category-badge">${formatarCategoriaAtivo(categoria)}</span>
+        </td>
+        <td>
+          <div class="portfolio-asset-name">${asset.name}</div>
+          <span class="portfolio-asset-meta">${asset.ticker || asset.tipoAtivo || asset.type || 'Ativo cadastrado'}</span>
+        </td>
+        <td>
+          <strong class="portfolio-value">${formatCurrency(asset.value)}</strong>
+        </td>
+        <td>
+          <span class="portfolio-pill">${obterPerfilAtivoTabela(asset)}</span>
+        </td>
+        <td>
+          <span class="risk-badge risk-${risco}">${asset.risk || asset.risco}</span>
+        </td>
+        <td class="asset-details">
+          <div class="asset-detail-list">
+            ${detalhes.map((detalhe) => `<span>${detalhe}</span>`).join('')}
+          </div>
+        </td>
+        <td>
+          <div class="portfolio-actions">
+            <button type="button" class="edit-btn" data-index="${index}">Editar</button>
+            <button type="button" class="remove-btn" data-index="${index}">Remover</button>
+          </div>
+        </td>
       </tr>
     `;
   }).join('');
+
+  document.querySelectorAll('.edit-btn').forEach((btn) => {
+    btn.addEventListener('click', () => iniciarEdicaoAtivo(Number(btn.dataset.index)));
+  });
 
   document.querySelectorAll('.remove-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -1476,31 +1955,51 @@ function renderizarMetricasCarteira() {
   const score = Number(m.score || 0);
   const scoreLabel = obterClassificacaoScore(score);
   const scoreDiagnostico = obterDiagnosticoScore(score, m);
+  const scoreNivel = obterNivelScore(score);
+  const mensagemExecutiva = obterMensagemExecutivaMetricas(score, m);
   grid.innerHTML = `
-    <h3 class="metric-block-title">Resumo principal</h3>
-    <div class="metric-main-grid">
-      <div class="metric-main-item"><strong>Valor total investido</strong><span class="metric-value">${formatCurrency(m.totalInvested)}</span></div>
-      <div class="metric-main-item"><strong>Quantidade de ativos</strong><span class="metric-value">${m.assetsCount}</span></div>
-      <div class="metric-main-item"><strong>Quantidade de categorias</strong><span class="metric-value">${m.typesCount}</span></div>
-      <div class="metric-main-item score-item">
-        <strong>Score da carteira</strong>
-        <span class="metric-value">${score}/100</span>
-        <div class="score-label">${scoreLabel}</div>
-        <div class="score-diagnostico">${scoreDiagnostico}</div>
-        <div class="score-bar"><div class="score-bar-fill" style="width:${Math.max(0, Math.min(100, score))}%"></div></div>
+    <section class="metrics-hero score-${scoreNivel}">
+      <div class="metrics-hero-copy">
+        <span class="section-kicker">Diagnostico da carteira</span>
+        <h3>${scoreLabel}</h3>
+        <p>${mensagemExecutiva}</p>
       </div>
-    </div>
-    <h3 class="metric-block-title">Indicadores complementares</h3>
-    <div class="metric-secondary-grid">
-      <div class="metric-item"><strong>Maior concentracao</strong><span class="metric-value">${m.maxConcentrationPercent.toFixed(2)}%</span></div>
-      <div class="metric-item"><strong>Ativo mais concentrado</strong><span class="metric-value">${m.topConcentrationAsset}</span></div>
-      <div class="metric-item"><strong>% em renda fixa</strong><span class="metric-value">${m.percentFixedIncome.toFixed(2)}%</span></div>
-      <div class="metric-item"><strong>% em renda variavel</strong><span class="metric-value">${m.percentVariableIncome.toFixed(2)}%</span></div>
-      <div class="metric-item"><strong>% em risco alto</strong><span class="metric-value">${m.percentHighRisk.toFixed(2)}%</span></div>
-      <div class="metric-item"><strong>% em liquidez diaria</strong><span class="metric-value">${m.percentDailyLiquidity.toFixed(2)}%</span></div>
-      <div class="metric-item"><strong>Diversificacao</strong><span class="metric-value">${m.diversification}</span></div>
-      <div class="metric-item"><strong>Risco geral</strong><span class="metric-value">${m.riskClassification}</span></div>
-    </div>
+      <div class="score-radial metrics-score-radial" style="--score-percent:${Math.max(0, Math.min(100, score))}%;">
+        <span>${score}</span>
+        <small>/100</small>
+      </div>
+    </section>
+
+    <section class="metrics-section">
+      <div class="metrics-section-heading"><span>Resumo financeiro</span><strong>Base da carteira</strong></div>
+      <div class="metric-main-grid metrics-highlight-grid">
+        <div class="metric-main-item"><strong>Valor total investido</strong><span class="metric-value">${formatCurrency(m.totalInvested)}</span></div>
+        <div class="metric-main-item"><strong>Quantidade de ativos</strong><span class="metric-value">${m.assetsCount}</span></div>
+        <div class="metric-main-item"><strong>Categorias</strong><span class="metric-value">${m.typesCount}</span></div>
+        <div class="metric-main-item"><strong>Diversificacao</strong><span class="metric-value">${m.diversification}</span></div>
+      </div>
+    </section>
+
+    <section class="metrics-section metrics-two-columns">
+      <div>
+        <div class="metrics-section-heading"><span>Risco</span><strong>Concentracao e exposicao</strong></div>
+        <div class="metric-secondary-grid compact-metrics-grid">
+          <div class="metric-item"><strong>Maior concentracao</strong><span class="metric-value">${m.maxConcentrationPercent.toFixed(2)}%</span></div>
+          <div class="metric-item"><strong>Ativo dominante</strong><span class="metric-value">${m.topConcentrationAsset}</span></div>
+          <div class="metric-item"><strong>Risco alto</strong><span class="metric-value">${m.percentHighRisk.toFixed(2)}%</span></div>
+          <div class="metric-item"><strong>Risco geral</strong><span class="metric-value">${m.riskClassification}</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="metrics-section-heading"><span>Alocacao</span><strong>Defensivo x oscilante</strong></div>
+        <div class="metric-secondary-grid compact-metrics-grid">
+          <div class="metric-item"><strong>Renda fixa</strong><span class="metric-value">${m.percentFixedIncome.toFixed(2)}%</span></div>
+          <div class="metric-item"><strong>Renda variavel</strong><span class="metric-value">${m.percentVariableIncome.toFixed(2)}%</span></div>
+          <div class="metric-item"><strong>Liquidez diaria</strong><span class="metric-value">${m.percentDailyLiquidity.toFixed(2)}%</span></div>
+          <div class="metric-item"><strong>Diagnostico</strong><span class="metric-value">${scoreDiagnostico}</span></div>
+        </div>
+      </div>
+    </section>
   `;
 }
 
@@ -1537,6 +2036,121 @@ function obterDadosGraficoConcentracao() {
   return { labels, valores, percentuais };
 }
 
+function obterDadosGraficoRisco() {
+  const grupos = [
+    { key: 'baixo', label: 'Baixo' },
+    { key: 'medio', label: 'Medio' },
+    { key: 'alto', label: 'Alto' },
+  ];
+  return {
+    labels: grupos.map((grupo) => grupo.label),
+    data: grupos.map((grupo) => state.assets
+      .filter((asset) => normalizarRisco(asset.risk || asset.risco) === grupo.key)
+      .reduce((soma, asset) => soma + Number(asset.value || 0), 0)),
+  };
+}
+
+function obterDadosGraficoLiquidez() {
+  const liquidezDiaria = state.assets
+    .filter((asset) => String(asset.liquidity || asset.liquidez || '').toLowerCase().includes('diaria'))
+    .reduce((soma, asset) => soma + Number(asset.value || 0), 0);
+  const total = state.assets.reduce((soma, asset) => soma + Number(asset.value || 0), 0);
+  return { labels: ['Liquidez diaria', 'Outros prazos'], data: [liquidezDiaria, Math.max(0, total - liquidezDiaria)] };
+}
+
+function normalizarDataAporte(asset) {
+  const raw = asset.purchaseDate || asset.dataCompra || asset.createdAt || '';
+  const data = raw ? new Date(`${String(raw).slice(0, 10)}T00:00:00`) : new Date();
+  return Number.isNaN(data.getTime()) ? new Date() : data;
+}
+
+function formatarDataInput(data) {
+  return data.toISOString().slice(0, 10);
+}
+
+function obterInicioSemana(data) {
+  const d = new Date(data);
+  const dia = d.getDay();
+  const diff = dia === 0 ? -6 : 1 - dia;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function obterChavePeriodo(data, granularidade) {
+  const d = new Date(data);
+  if (granularidade === 'weekly') {
+    const inicio = obterInicioSemana(d);
+    return formatarDataInput(inicio);
+  }
+  if (granularidade === 'yearly') return String(d.getFullYear());
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function obterLabelPeriodo(chave, granularidade) {
+  if (granularidade === 'weekly') {
+    const data = new Date(`${chave}T00:00:00`);
+    return `Semana ${data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
+  }
+  if (granularidade === 'yearly') return chave;
+  const [ano, mes] = chave.split('-').map(Number);
+  return new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+}
+
+function avancarPeriodo(data, granularidade) {
+  const d = new Date(data);
+  if (granularidade === 'weekly') d.setDate(d.getDate() + 7);
+  else if (granularidade === 'yearly') d.setFullYear(d.getFullYear() + 1);
+  else d.setMonth(d.getMonth() + 1);
+  return d;
+}
+
+function obterDadosGraficoTotalAportado() {
+  const granularidade = document.getElementById('contributionGranularity')?.value || 'monthly';
+  const datas = state.assets.map(normalizarDataAporte).sort((a, b) => a - b);
+  const hoje = new Date();
+  const dataInicialPadrao = datas[0] || new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const dataFinalPadrao = datas[datas.length - 1] || hoje;
+  const startEl = document.getElementById('contributionStartDate');
+  const endEl = document.getElementById('contributionEndDate');
+
+  if (startEl && !startEl.value) startEl.value = formatarDataInput(dataInicialPadrao);
+  if (endEl && !endEl.value) endEl.value = formatarDataInput(dataFinalPadrao);
+
+  const inicio = new Date(`${startEl?.value || formatarDataInput(dataInicialPadrao)}T00:00:00`);
+  const fim = new Date(`${endEl?.value || formatarDataInput(dataFinalPadrao)}T23:59:59`);
+  const inicioPeriodo = granularidade === 'weekly'
+    ? obterInicioSemana(inicio)
+    : granularidade === 'yearly'
+      ? new Date(inicio.getFullYear(), 0, 1)
+      : new Date(inicio.getFullYear(), inicio.getMonth(), 1);
+
+  const valoresPorPeriodo = {};
+  state.assets.forEach((asset) => {
+    const data = normalizarDataAporte(asset);
+    if (data < inicio || data > fim) return;
+    const chave = obterChavePeriodo(data, granularidade);
+    valoresPorPeriodo[chave] = (valoresPorPeriodo[chave] || 0) + Number(asset.value || 0);
+  });
+
+  const labels = [];
+  const aportes = [];
+  const acumulado = [];
+  let cursor = inicioPeriodo;
+  let total = 0;
+  while (cursor <= fim) {
+    const chave = obterChavePeriodo(cursor, granularidade);
+    const valor = valoresPorPeriodo[chave] || 0;
+    total += valor;
+    labels.push(obterLabelPeriodo(chave, granularidade));
+    aportes.push(valor);
+    acumulado.push(total);
+    cursor = avancarPeriodo(cursor, granularidade);
+  }
+
+  return { labels, aportes, acumulado };
+}
+
 function destruirGraficosCarteira() {
   Object.keys(chartsCarteira).forEach((key) => {
     if (chartsCarteira[key]) {
@@ -1550,6 +2164,12 @@ function renderizarGraficosCarteira() {
   const categoriasCanvas = document.getElementById('chartCategorias');
   const rendaFixaVariavelCanvas = document.getElementById('chartRendaFixaVariavel');
   const concentracaoCanvas = document.getElementById('chartConcentracao');
+  const scoreCanvas = document.getElementById('chartScoreCarteira');
+  const categoriasDetalheCanvas = document.getElementById('chartCategoriasDetalhe');
+  const riscoCanvas = document.getElementById('chartRiscoCarteira');
+  const liquidezCanvas = document.getElementById('chartLiquidezCarteira');
+  const valorAtivosCanvas = document.getElementById('chartValorAtivos');
+  const totalAportadoCanvas = document.getElementById('chartTotalAportado');
 
   if (!categoriasCanvas || !rendaFixaVariavelCanvas || !concentracaoCanvas) return;
 
@@ -1560,18 +2180,35 @@ function renderizarGraficosCarteira() {
   const dadosCategorias = obterDadosGraficoCategorias();
   const dadosRendaFixaVariavel = obterDadosGraficoRendaFixaVariavel();
   const dadosConcentracao = obterDadosGraficoConcentracao();
+  const dadosRisco = obterDadosGraficoRisco();
+  const dadosLiquidez = obterDadosGraficoLiquidez();
+  const dadosTotalAportado = obterDadosGraficoTotalAportado();
+  const score = Number(state.portfolioMetrics?.score || 0);
 
   chartsCarteira.categorias = new Chart(categoriasCanvas, {
     type: 'doughnut',
     data: {
       labels: dadosCategorias.labels,
-      datasets: [{ data: dadosCategorias.data, backgroundColor: ['#1E3A5F', '#3E6B89', '#8AA1B1', '#6FA58B'], borderWidth: 1, borderColor: '#f7f9fb' }],
+      datasets: [{
+        data: dadosCategorias.data,
+        backgroundColor: ['#d6a93f', '#f4d67a', '#b88623', '#72511b'],
+        borderWidth: 2,
+        borderColor: '#15191a',
+        hoverOffset: 5,
+        cutout: '68%',
+        radius: '82%',
+      }],
     },
     options: {
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 12, color: '#4a5a6b' } },
+        legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, color: '#cdbf9a', usePointStyle: true, pointStyle: 'circle', padding: 14 } },
         tooltip: {
+          backgroundColor: '#111617',
+          borderColor: '#3a301d',
+          borderWidth: 1,
+          titleColor: '#fff7dc',
+          bodyColor: '#d8ccb0',
           callbacks: {
             label(context) {
               const label = context.label || '';
@@ -1590,13 +2227,26 @@ function renderizarGraficosCarteira() {
     type: 'doughnut',
     data: {
       labels: dadosRendaFixaVariavel.labels,
-      datasets: [{ data: dadosRendaFixaVariavel.data, backgroundColor: ['#6FA58B', '#3E6B89'], borderWidth: 1, borderColor: '#f7f9fb' }],
+      datasets: [{
+        data: dadosRendaFixaVariavel.data,
+        backgroundColor: ['#f4d67a', '#b88623'],
+        borderWidth: 2,
+        borderColor: '#15191a',
+        hoverOffset: 5,
+        cutout: '68%',
+        radius: '82%',
+      }],
     },
     options: {
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 12, color: '#4a5a6b' } },
+        legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, color: '#cdbf9a', usePointStyle: true, pointStyle: 'circle', padding: 14 } },
         tooltip: {
+          backgroundColor: '#111617',
+          borderColor: '#3a301d',
+          borderWidth: 1,
+          titleColor: '#fff7dc',
+          bodyColor: '#d8ccb0',
           callbacks: {
             label(context) {
               const label = context.label || '';
@@ -1611,17 +2261,122 @@ function renderizarGraficosCarteira() {
     },
   });
 
+  if (scoreCanvas) {
+    chartsCarteira.score = new Chart(scoreCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['Score', 'Espaco para evoluir'],
+        datasets: [{
+          data: [score, Math.max(0, 100 - score)],
+          backgroundColor: ['#d6a93f', '#25231d'],
+          borderWidth: 0,
+          cutout: '76%',
+          radius: '82%',
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                return `${context.label}: ${Number(context.raw || 0).toFixed(0)}%`;
+              },
+            },
+          },
+        },
+      },
+      plugins: [{
+        id: 'scoreCenterText',
+        afterDraw(chart) {
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return;
+          ctx.save();
+          ctx.fillStyle = '#fff7dc';
+          ctx.font = '700 24px Segoe UI, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(score), (chartArea.left + chartArea.right) / 2, (chartArea.top + chartArea.bottom) / 2);
+          ctx.restore();
+        },
+      }],
+    });
+  }
+
+  if (totalAportadoCanvas) {
+    chartsCarteira.totalAportado = new Chart(totalAportadoCanvas, {
+      type: 'line',
+      data: {
+        labels: dadosTotalAportado.labels,
+        datasets: [
+          {
+            label: 'Total acumulado',
+            data: dadosTotalAportado.acumulado,
+            borderColor: '#d6a93f',
+            backgroundColor: 'rgba(214,169,63,.12)',
+            fill: true,
+            tension: .35,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+          },
+          {
+            label: 'Aporte no periodo',
+            data: dadosTotalAportado.aportes,
+            borderColor: '#6fb07a',
+            backgroundColor: 'rgba(111,176,122,.1)',
+            borderDash: [6, 6],
+            tension: .35,
+            pointRadius: 2,
+          },
+        ],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, color: '#cdbf9a', usePointStyle: true, pointStyle: 'circle', padding: 14 } },
+          tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${formatarMoeda(context.raw)}` } },
+        },
+        scales: {
+          x: { ticks: { color: '#cdbf9a' }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { callback: (value) => formatarMoeda(value), color: '#cdbf9a' }, grid: { color: 'rgba(214,169,63,.08)' } },
+        },
+      },
+    });
+  }
+
+  const concentracaoComoPizza = state.concentrationChartView === 'pie';
   chartsCarteira.concentracao = new Chart(concentracaoCanvas, {
-    type: 'bar',
+    type: concentracaoComoPizza ? 'doughnut' : 'bar',
     data: {
       labels: dadosConcentracao.labels,
-      datasets: [{ label: '% da carteira', data: dadosConcentracao.percentuais, backgroundColor: ['#1E3A5F', '#2B4D6A', '#3E6B89', '#5B819B', '#6E90A7', '#8AA1B1', '#9EB2BF', '#B1C2CB', '#C3D1D8', '#D6E1E6'] }],
+      datasets: [{
+        label: '% da carteira',
+        data: dadosConcentracao.percentuais,
+        backgroundColor: concentracaoComoPizza
+          ? ['#d6a93f', '#f4d67a', '#b88623', '#6fb07a', '#d66f58', '#7f9ccf', '#d2a6ff', '#90d2c2', '#c97855', '#72511b']
+          : '#d6a93f',
+        borderColor: concentracaoComoPizza ? '#15191a' : undefined,
+        borderWidth: concentracaoComoPizza ? 2 : 0,
+        borderRadius: concentracaoComoPizza ? 0 : 8,
+        borderSkipped: false,
+        maxBarThickness: 34,
+        hoverOffset: concentracaoComoPizza ? 6 : 0,
+        cutout: concentracaoComoPizza ? '58%' : undefined,
+      }],
     },
     options: {
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: concentracaoComoPizza
+          ? { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, color: '#cdbf9a', usePointStyle: true, pointStyle: 'circle', padding: 14 } }
+          : { display: false },
         tooltip: {
+          backgroundColor: '#111617',
+          borderColor: '#3a301d',
+          borderWidth: 1,
+          titleColor: '#fff7dc',
+          bodyColor: '#d8ccb0',
           callbacks: {
             label(context) {
               const label = context.label || '';
@@ -1632,12 +2387,122 @@ function renderizarGraficosCarteira() {
           },
         },
       },
-      scales: {
-        x: { ticks: { color: '#4a5a6b' }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { callback: (value) => formatarPercentual(value), color: '#4a5a6b' }, grid: { color: '#e7edf2' } },
+      scales: concentracaoComoPizza ? {} : {
+        x: { ticks: { color: '#cdbf9a' }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { callback: (value) => formatarPercentual(value), color: '#cdbf9a' }, grid: { color: 'rgba(214,169,63,.08)' } },
       },
     },
   });
+
+  if (categoriasDetalheCanvas) {
+    chartsCarteira.categoriasDetalhe = new Chart(categoriasDetalheCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: dadosCategorias.labels,
+        datasets: [{
+          data: dadosCategorias.data,
+          backgroundColor: ['#d6a93f', '#f4d67a', '#b88623', '#6fb07a'],
+          borderWidth: 2,
+          borderColor: '#15191a',
+          cutout: '62%',
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, color: '#cdbf9a', usePointStyle: true, pointStyle: 'circle', padding: 14 } },
+          tooltip: {
+            backgroundColor: '#111617',
+            borderColor: '#3a301d',
+            borderWidth: 1,
+            titleColor: '#fff7dc',
+            bodyColor: '#d8ccb0',
+            callbacks: { label: (context) => `${context.label}: ${formatarMoeda(context.raw)}` },
+          },
+      },
+    },
+  });
+
+  if (liquidezCanvas) {
+    chartsCarteira.liquidez = new Chart(liquidezCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: dadosLiquidez.labels,
+        datasets: [{
+          data: dadosLiquidez.data,
+          backgroundColor: ['#5fbf75', '#2a3431'],
+          borderWidth: 2,
+          borderColor: '#15191a',
+          cutout: '70%',
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, color: '#cdbf9a', usePointStyle: true, pointStyle: 'circle', padding: 14 } },
+          tooltip: { callbacks: { label: (context) => `${context.label}: ${formatarMoeda(context.raw)}` } },
+        },
+      },
+    });
+  }
+
+  if (valorAtivosCanvas) {
+    chartsCarteira.valorAtivos = new Chart(valorAtivosCanvas, {
+      type: 'bar',
+      data: {
+        labels: dadosConcentracao.labels,
+        datasets: [{
+          label: 'Valor investido',
+          data: dadosConcentracao.valores,
+          backgroundColor: '#d6a93f',
+          borderRadius: 8,
+          borderSkipped: false,
+          maxBarThickness: 34,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (context) => formatarMoeda(context.raw) } },
+        },
+        scales: {
+          x: { beginAtZero: true, ticks: { callback: (value) => formatarMoeda(value), color: '#cdbf9a' }, grid: { color: 'rgba(214,169,63,.08)' } },
+          y: { ticks: { color: '#cdbf9a' }, grid: { display: false } },
+        },
+      },
+    });
+  }
+}
+
+  if (riscoCanvas) {
+    chartsCarteira.risco = new Chart(riscoCanvas, {
+      type: 'bar',
+      data: {
+        labels: dadosRisco.labels,
+        datasets: [{
+          label: 'Valor em risco',
+          data: dadosRisco.data,
+          backgroundColor: ['#5fbf75', '#e0a33a', '#d65b4a'],
+          borderRadius: 8,
+          borderSkipped: false,
+          maxBarThickness: 42,
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (context) => formatarMoeda(context.raw) } },
+        },
+        scales: {
+          x: { ticks: { color: '#cdbf9a' }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { callback: (value) => formatarMoeda(value), color: '#cdbf9a' }, grid: { color: 'rgba(214,169,63,.08)' } },
+        },
+      },
+    });
+  }
 }
 
 function calcularScoreCarteiraLocal(metricas, perfilInvestidor) {
@@ -1806,24 +2671,35 @@ function obterBadgeRecomendacao(tipo) {
   return 'Info';
 }
 
+function obterConfigPrioridade(prioridade) {
+  const nivel = String(prioridade || 'media').toLowerCase();
+  if (nivel === 'alta') return { classe: 'priority-high', icone: '!', rotulo: 'Perigo' };
+  if (nivel === 'baixa') return { classe: 'priority-low', icone: 'i', rotulo: 'Baixa' };
+  return { classe: 'priority-medium', icone: '!', rotulo: 'Alerta' };
+}
+
 function renderizarRecomendacoes() {
   const list = document.getElementById('recommendationsList');
   try {
     const recomendacoes = gerarRecomendacoesAutomaticas(state.perfilInvestidor, state.assets, state.portfolioMetrics);
     if (!recomendacoes.length) {
-      list.innerHTML = '<div class="recommendation-card recommendation-info"><span class="recommendation-badge">Info</span><strong>Sem recomendacoes no momento</strong><p>Adicione mais dados para melhorar a analise automatica.</p><small>Prioridade: baixa</small></div>';
+      list.innerHTML = '<div class="recommendation-card recommendation-info priority-low"><div class="recommendation-icon">i</div><span class="recommendation-badge">Info</span><strong>Sem recomendacoes no momento</strong><p>Adicione mais dados para melhorar a analise automatica.</p><small>Prioridade: baixa</small></div>';
       return;
     }
-    list.innerHTML = recomendacoes.map((item) => `
-      <div class="recommendation-card recommendation-${item.tipo}">
+    list.innerHTML = recomendacoes.map((item) => {
+      const prioridade = obterConfigPrioridade(item.prioridade);
+      return `
+      <div class="recommendation-card recommendation-${item.tipo} ${prioridade.classe}">
+        <div class="recommendation-icon" aria-label="${prioridade.rotulo}">${prioridade.icone}</div>
         <span class="recommendation-badge">${obterBadgeRecomendacao(item.tipo)}</span>
         <strong>${item.titulo}</strong>
         <p>${item.descricao}</p>
         <small>Prioridade: ${item.prioridade}</small>
       </div>
-    `).join('');
+    `;
+    }).join('');
   } catch (_error) {
-    list.innerHTML = '<div class="recommendation-card recommendation-info"><span class="recommendation-badge">Info</span><strong>Recomendacoes indisponiveis</strong><p>Nao foi possivel gerar recomendacoes no momento.</p><small>Prioridade: media</small></div>';
+    list.innerHTML = '<div class="recommendation-card recommendation-info priority-medium"><div class="recommendation-icon">!</div><span class="recommendation-badge">Info</span><strong>Recomendacoes indisponiveis</strong><p>Nao foi possivel gerar recomendacoes no momento.</p><small>Prioridade: media</small></div>';
   }
 }
 
@@ -1835,6 +2711,7 @@ async function atualizarDashboardCarteira() {
     renderizarMetricasCarteira();
     renderizarGraficosCarteira();
     renderizarRecomendacoes();
+    atualizarResumoDashboard();
     return;
   }
 
@@ -1843,11 +2720,34 @@ async function atualizarDashboardCarteira() {
     renderizarMetricasCarteira();
     renderizarGraficosCarteira();
     renderizarRecomendacoes();
+    atualizarResumoDashboard();
   } catch (_error) {
     renderizarGraficosCarteira();
     state.portfolioMetrics = null;
     renderizarMetricasCarteira();
     renderizarRecomendacoes();
+    atualizarResumoDashboard();
+  }
+}
+
+function salvarListaAtivosLocal(lista) {
+  localStorage.setItem(STORAGE_KEY_FALLBACK, JSON.stringify(lista));
+}
+
+async function atualizarAtivoNoBackend(id, ativo) {
+  try {
+    const data = await requestApi(`/api/portfolio/assets/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ativo),
+    });
+    return data.asset;
+  } catch (_error) {
+    const assetsLocal = localStorage.getItem(STORAGE_KEY_FALLBACK);
+    const lista = assetsLocal ? JSON.parse(assetsLocal) : state.assets;
+    const atualizada = lista.map((asset) => (String(asset.id) === String(id) ? { ...ativo, id: String(id) } : asset));
+    salvarListaAtivosLocal(atualizada);
+    return { ...ativo, id: String(id) };
   }
 }
 
@@ -1865,6 +2765,20 @@ async function adicionarAtivo(event) {
       return;
     }
 
+    if (ativoEmEdicaoIndex !== null) {
+      const ativoOriginal = state.assets[ativoEmEdicaoIndex];
+      const ativoAtualizado = { ...ativo, id: String(ativoOriginal.id) };
+      const salvo = await atualizarAtivoNoBackend(ativoOriginal.id, ativoAtualizado);
+      state.assets[ativoEmEdicaoIndex] = salvo;
+      salvarListaAtivosLocal(state.assets);
+      encerrarEdicaoAtivo();
+      setMessage(msg, 'Ativo atualizado com sucesso.', 'success');
+      renderizarCamposAtivoPorCategoria(categoria);
+      await atualizarDashboardCarteira();
+      abrirAbaDashboard('carteira');
+      return;
+    }
+
     const ativoSalvo = (categoria === 'cripto' || categoria === 'acoes' || categoria === 'fundos imobiliarios') ? ativo : await salvarAtivoNoBackend(ativo);
     state.assets.push(ativoSalvo);
 
@@ -1872,7 +2786,7 @@ async function adicionarAtivo(event) {
       const assetsLocal = localStorage.getItem(STORAGE_KEY_FALLBACK);
       const lista = assetsLocal ? JSON.parse(assetsLocal) : [];
       lista.push(ativoSalvo);
-      localStorage.setItem(STORAGE_KEY_FALLBACK, JSON.stringify(lista));
+      salvarListaAtivosLocal(lista);
     }
 
     setMessage(msg, 'Ativo adicionado a carteira com sucesso.', 'success');
@@ -1885,14 +2799,56 @@ async function adicionarAtivo(event) {
 
 document.getElementById('assetCategory').addEventListener('change', (event) => {
   renderizarCamposAtivoPorCategoria(event.target.value);
+  document.querySelectorAll('.asset-type-card').forEach((card) => card.classList.toggle('active', card.dataset.assetCategory === event.target.value));
   setMessage(document.getElementById('assetMessage'), '');
 });
 
 document.getElementById('assetForm').addEventListener('submit', adicionarAtivo);
 
+document.querySelectorAll('[data-jump-tab]').forEach((button) => {
+  button.addEventListener('click', () => abrirAbaDashboard(button.dataset.jumpTab));
+});
+
+document.getElementById('goToAssetRegister')?.addEventListener('click', () => abrirAbaDashboard('ativos'));
+
+document.querySelectorAll('[data-chart-view]').forEach((button) => {
+  button.addEventListener('click', () => {
+    state.concentrationChartView = button.dataset.chartView || 'bar';
+    document.querySelectorAll('[data-chart-view]').forEach((item) => {
+      item.classList.toggle('active', item.dataset.chartView === state.concentrationChartView);
+    });
+    renderizarGraficosCarteira();
+  });
+});
+
+['contributionGranularity', 'contributionStartDate', 'contributionEndDate'].forEach((id) => {
+  document.getElementById(id)?.addEventListener('change', renderizarGraficosCarteira);
+});
+
+document.getElementById('assetCancelEditBtn')?.addEventListener('click', () => {
+  encerrarEdicaoAtivo();
+  const categoria = document.getElementById('assetCategory').value;
+  renderizarCamposAtivoPorCategoria(categoria);
+  setMessage(document.getElementById('assetMessage'), 'Edicao cancelada.', 'success');
+});
+
+document.querySelectorAll('.asset-type-card').forEach((button) => {
+  button.addEventListener('click', () => {
+    const categoria = button.dataset.assetCategory;
+    const select = document.getElementById('assetCategory');
+    select.value = categoria;
+    document.querySelectorAll('.asset-type-card').forEach((card) => card.classList.toggle('active', card === button));
+    renderizarCamposAtivoPorCategoria(categoria);
+    setMessage(document.getElementById('assetMessage'), '');
+  });
+});
+
+document.getElementById('btnEditarPerfil')?.addEventListener('click', renderizarEditorPerfil);
+
 document.getElementById('simulationForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const result = document.getElementById('simulationResult');
+  const submitButton = event.currentTarget.querySelector('button[type="submit"]');
 
   const simulationGoal = document.getElementById('simulationGoal').value.trim();
   const targetAmount = Number(document.getElementById('targetAmount').value);
@@ -1906,6 +2862,22 @@ document.getElementById('simulationForm').addEventListener('submit', async (even
     return setMessage(result, 'Valores invalidos na simulacao. Verifique os campos.', 'error');
   }
 
+  result.className = 'simulation-loading';
+  result.innerHTML = `
+    <div class="simulation-loading-card">
+      <div class="simulation-loading-top">
+        <span class="section-kicker">Simulando</span>
+        <strong>Aguarde enquanto calculamos sua projecao</strong>
+      </div>
+      <div class="simulation-loading-bar"><div></div></div>
+      <p>Organizando aportes, juros e distancia ate o objetivo.</p>
+    </div>
+  `;
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = 'Simulando...';
+  }
+
   try {
     const data = await postData('/api/compound-interest', {
       initialAmount,
@@ -1915,23 +2887,63 @@ document.getElementById('simulationForm').addEventListener('submit', async (even
       targetAmount,
     });
 
-    result.classList.remove('error');
+    result.className = 'simulation-result';
+    const progresso = targetAmount > 0 ? Math.max(0, Math.min(100, (Number(data.finalAmount || 0) / targetAmount) * 100)) : 100;
+    const statusClasse = data.reachedTarget ? 'simulation-status-ok' : 'simulation-status-warn';
+    const mesesFormatados = `${months} ${months === 1 ? 'mes' : 'meses'}`;
+    const diagnostico = data.reachedTarget
+      ? 'A simulacao indica que o plano atual e suficiente para atingir o objetivo dentro do prazo informado.'
+      : 'A simulacao indica que o objetivo ainda nao fecha com os parametros atuais. Revise aporte mensal, prazo ou taxa esperada.';
     result.innerHTML = `
-      <p><strong>Objetivo:</strong> ${simulationGoal}</p>
-      <p><strong>Resultado final estimado:</strong> ${formatCurrency(data.finalAmount)}</p>
-      <p><strong>Total aportado:</strong> ${formatCurrency(data.totalContributed)}</p>
-      <p><strong>Rendimento estimado:</strong> ${formatCurrency(data.estimatedReturn)}</p>
-      <p><strong>Diferenca para objetivo:</strong> ${formatCurrency(data.targetDifference)}</p>
-      <p><strong>Status:</strong> ${data.reachedTarget ? 'Voce alcanca o objetivo nesta simulacao.' : 'Objetivo ainda nao alcancado; ajuste aporte, prazo ou taxa.'}</p>
+      <div class="simulation-result-header">
+        <div>
+          <span class="section-kicker">Resultado projetado</span>
+          <h3>${simulationGoal}</h3>
+          <p>Horizonte de ${mesesFormatados} com taxa mensal de ${formatarPercentual(monthlyRatePercent)}.</p>
+        </div>
+        <span class="simulation-status ${statusClasse}">${data.reachedTarget ? 'Objetivo alcancado' : 'Ajuste necessario'}</span>
+      </div>
+      <div class="simulation-hero-number">
+        <span>Resultado final estimado</span>
+        <strong>${formatCurrency(data.finalAmount)}</strong>
+      </div>
+      <div class="simulation-progress">
+        <div class="simulation-progress-top"><span>Progresso ate a meta</span><strong>${formatarPercentual(progresso)}</strong></div>
+        <div class="simulation-progress-bar"><div style="width:${progresso}%"></div></div>
+      </div>
+      <div class="simulation-kpis">
+        <div><span>Total aportado</span><strong>${formatCurrency(data.totalContributed)}</strong></div>
+        <div><span>Rendimento estimado</span><strong>${formatCurrency(data.estimatedReturn)}</strong></div>
+        <div><span>Diferenca para objetivo</span><strong>${formatCurrency(data.targetDifference)}</strong></div>
+      </div>
+      <div class="simulation-diagnosis ${statusClasse}">
+        <span>Diagnostico</span>
+        <strong>${data.reachedTarget ? 'Plano consistente' : 'Plano abaixo da meta'}</strong>
+        <p>${diagnostico}</p>
+      </div>
     `;
   } catch (error) {
+    result.className = 'result-box error';
     setMessage(result, error.message, 'error');
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Simular objetivo';
+    }
   }
 });
 
-renderizarPerfil();
-iniciarQuestionarioPerfil();
+const perfilRestaurado = restaurarPerfilLocal();
+if (perfilRestaurado) {
+  renderizarPerfil();
+  abrirDashboard();
+} else {
+  renderizarPerfil();
+  iniciarQuestionarioPerfil();
+}
 renderizarCamposAtivoPorCategoria('');
+iniciarFundoInterativo();
+iniciarDashboardTabs();
 
 async function inicializarAplicacao() {
   try {

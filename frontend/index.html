@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
@@ -7,98 +7,318 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="container">
-      <header class="hero card">
-        <h1>FMP Invest</h1>
-        <p>Plataforma educacional para iniciantes acompanharem perfil, carteira, risco, liquidez e evolucao de investimentos.</p>
-      </header>
-
-      <section class="card"><h2>Visao Geral do Projeto</h2><p>MVP da Sprint 1 com analise de perfil de investidor, carteira, metricas automaticas, recomendacoes por regras e simulador de juros compostos.</p></section>
-
-      <section class="card">
-        <h2>Perfil Financeiro do Usuario</h2>
+    <main id="onboarding" class="onboarding-shell">
+      <section class="onboarding-card">
         <div id="profileQuestionnaire" class="profile-questionnaire"></div>
-        <div id="profileResult" class="result-box"></div>
-      </section>
-
-      <section class="card">
-        <h2>Cadastro de Ativos</h2>
-        <p>Adicione os investimentos da sua carteira para calcular diversificacao, risco e score.</p>
-        <form id="assetForm" class="form-grid form-4col">
-          <label class="asset-category-selector">Qual tipo de investimento voce quer cadastrar?
-            <select id="assetCategory" required>
-              <option value="">Selecione</option>
-              <option value="acoes">Acoes</option>
-              <option value="renda fixa">Renda Fixa</option>
-              <option value="cripto">Cripto</option>
-              <option value="fundos imobiliarios">Fundos Imobiliarios</option>
-            </select>
-          </label>
-          <div id="assetCategoryDescription" class="asset-category-description"></div>
-          <div id="assetDynamicFields" class="dynamic-fields asset-category-card"></div>
-          <button type="submit" class="asset-submit-btn">Adicionar ativo</button>
-        </form>
-        <p id="assetMessage" class="result"></p>
-      </section>
-
-      <section class="card">
-        <h2>Carteira de Investimentos</h2>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Categoria</th><th>Nome</th><th>Valor investido</th><th>Perfil do ativo</th><th>Risco</th><th>Detalhes</th><th>Acao</th></tr></thead>
-            <tbody id="portfolioTableBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Metricas da Carteira</h2>
-        <div id="metricsGrid" class="metrics-grid"></div>
-      </section>
-
-      <section class="card">
-        <h2>Visualizacao da Carteira</h2>
-        <div id="chartsGrid" class="charts-grid">
-          <div class="chart-card">
-            <h3>Alocacao por categoria</h3>
-            <p class="chart-subtitle">Distribuicao do valor investido entre as classes da carteira.</p>
-            <canvas id="chartCategorias"></canvas>
-          </div>
-          <div class="chart-card">
-            <h3>Renda fixa x renda variavel</h3>
-            <p class="chart-subtitle">Comparacao entre ativos defensivos e ativos de maior oscilacao.</p>
-            <canvas id="chartRendaFixaVariavel"></canvas>
-          </div>
-          <div class="chart-card chart-card-wide">
-            <h3>Concentracao por ativo</h3>
-            <p class="chart-subtitle">Percentual que cada ativo representa no total da carteira.</p>
-            <canvas id="chartConcentracao"></canvas>
-          </div>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Simulador de Juros Compostos</h2>
-        <form id="simulationForm" class="form-grid form-3col">
-          <label>Objetivo da simulacao<input placeholder="Ex: Aposentadoria" id="simulationGoal" type="text" required /></label>
-          <label>Valor desejado no futuro (R$)<input placeholder="Ex: 10000" id="targetAmount" type="number" min="0" step="0.01" required /></label>
-          <label>Valor inicial (R$)<input placeholder="Ex: 1000" id="initialAmount" type="number" min="0" step="0.01" required /></label>
-          <label>Aporte mensal (R$)<input placeholder="Ex: 350" id="recurringContribution" type="number" min="0" step="0.01" required /></label>
-          <label>Taxa mensal (%)<input placeholder="Ex: 0,7" id="monthlyRatePercent" type="number" min="0" step="0.01" required /></label>
-          <label>Quantidade de meses<input placeholder="Ex: 36" id="months" type="number" min="1" step="1" required /></label>
-          <button type="submit">Simular</button>
-        </form>
-        <div id="simulationResult" class="result-box"></div>
-      </section>
-
-      <section class="card"><h2>Recomendacoes Automaticas</h2><div id="recommendationsList" class="recommendations-grid"></div></section>
-
-      <section class="card">
-        <h2>Chatbot de Suporte</h2>
-        <p>Integracao futura. Nesta sprint, a funcionalidade esta apenas como placeholder visual.</p>
-        <div class="chatbot-placeholder"><input type="text" disabled placeholder="Digite sua pergunta (em breve)" /><button disabled>Enviar</button></div>
       </section>
     </main>
+
+    <main id="dashboardApp" class="dashboard-shell dashboard-hidden">
+      <aside class="dashboard-sidebar">
+        <div class="brand-block">
+          <img src="assets/logo.png" alt="FMP Invest" />
+          <div>
+            <strong>FMP Invest</strong>
+            <span>Dashboard</span>
+          </div>
+        </div>
+
+        <label class="dashboard-search">
+          <span>Buscar</span>
+          <input type="search" placeholder="Carteira, metricas..." />
+        </label>
+
+        <nav class="dashboard-nav" aria-label="Navegacao do dashboard">
+          <button type="button" class="tab-button active" data-tab="overview">Overview</button>
+          <button type="button" class="tab-button" data-tab="perfil">Perfil</button>
+          <button type="button" class="tab-button" data-tab="ativos">Cadastro</button>
+          <button type="button" class="tab-button" data-tab="carteira">Carteira</button>
+          <button type="button" class="tab-button" data-tab="metricas">Metricas</button>
+          <button type="button" class="tab-button" data-tab="graficos">Graficos</button>
+          <button type="button" class="tab-button" data-tab="simulador">Simulador</button>
+          <button type="button" class="tab-button" data-tab="recomendacoes">Recomendacoes</button>
+          <button type="button" class="tab-button" data-tab="suporte">Suporte</button>
+        </nav>
+
+        <div class="sidebar-footer">DMISION</div>
+      </aside>
+
+      <section class="dashboard-main">
+        <header class="dashboard-topbar">
+          <div>
+            <span class="breadcrumb">Dashboards / Overview</span>
+            <h1>Overview</h1>
+          </div>
+          <div class="topbar-actions">
+            <button type="button" title="Tema">◐</button>
+            <button type="button" title="Atualizar">↻</button>
+            <button type="button" title="Globo">◎</button>
+          </div>
+        </header>
+
+        <section class="dashboard-panel active" data-panel="overview">
+          <div class="dashboard-hero">
+            <div>
+              <span class="section-kicker">Portfolio command center</span>
+              <h2>Overview da carteira</h2>
+              <p>Acompanhe alocacao, risco, score e proximas acoes em uma unica tela.</p>
+            </div>
+            <button type="button" class="primary-action" id="goToAssetRegister">Cadastrar ativo</button>
+          </div>
+
+          <div class="kpi-grid">
+            <article class="kpi-card">
+              <span>Perfil atual</span>
+              <strong id="overviewProfileName">-</strong>
+              <small id="overviewProfileScore">Questionario concluido</small>
+            </article>
+            <article class="kpi-card">
+              <span>Total investido</span>
+              <strong id="overviewTotalInvested">R$ 0,00</strong>
+              <small>Somatorio da carteira</small>
+            </article>
+            <article class="kpi-card">
+              <span>Ativos cadastrados</span>
+              <strong id="overviewAssetsCount">0</strong>
+              <small>Diversificacao em andamento</small>
+            </article>
+            <article class="kpi-card">
+              <span>Score da carteira</span>
+              <strong id="overviewPortfolioScore">0</strong>
+              <small>Atualiza com os ativos</small>
+            </article>
+          </div>
+
+          <div class="overview-layout">
+            <section class="card chart-focus">
+              <div class="panel-heading">
+                <div>
+                  <span class="section-kicker">Diversificacao</span>
+                  <h2>Alocacao da carteira</h2>
+                </div>
+                <button type="button" class="ghost-action" data-jump-tab="graficos">Ver detalhes</button>
+              </div>
+              <div id="overviewMiniCharts" class="charts-grid">
+                <div class="chart-card">
+                  <h3>Alocacao por categoria</h3>
+                  <p class="chart-subtitle">Distribuicao do valor investido entre as classes.</p>
+                  <canvas id="chartCategorias"></canvas>
+                </div>
+                <div class="chart-card">
+                  <h3>Renda fixa x renda variavel</h3>
+                  <p class="chart-subtitle">Comparacao defensiva e oscilante.</p>
+                  <canvas id="chartRendaFixaVariavel"></canvas>
+                </div>
+                <div class="chart-card chart-score-card">
+                  <h3>Score da carteira</h3>
+                  <p class="chart-subtitle">Qualidade estrutural com base em diversificacao, risco e concentracao.</p>
+                  <canvas id="chartScoreCarteira"></canvas>
+                </div>
+              </div>
+              <div class="overview-contribution-panel">
+                <div class="overview-contribution-header">
+                  <div>
+                    <span class="section-kicker">Aportes</span>
+                    <h3>Total aportado no periodo</h3>
+                  </div>
+                  <div class="contribution-controls">
+                    <select id="contributionGranularity" aria-label="Visualizacao do grafico">
+                      <option value="weekly">Semanal</option>
+                      <option value="monthly" selected>Mensal</option>
+                      <option value="yearly">Anual</option>
+                    </select>
+                    <label>Inicio<input id="contributionStartDate" type="date" /></label>
+                    <label>Fim<input id="contributionEndDate" type="date" /></label>
+                  </div>
+                </div>
+                <canvas id="chartTotalAportado"></canvas>
+              </div>
+            </section>
+
+            <aside class="right-rail">
+              <section class="rail-card">
+                <h2>Plano de acao</h2>
+                <div id="overviewActionList" class="action-list"></div>
+              </section>
+              <section class="rail-card activity-card">
+                <h2>Resumo operacional</h2>
+                <ul>
+                  <li>Perfil financeiro sincronizado.</li>
+                  <li>Graficos atualizam com novos ativos.</li>
+                  <li>Recomendacoes recalculadas automaticamente.</li>
+                </ul>
+              </section>
+              <section class="rail-card premium-card">
+                <span>Proximo passo</span>
+                <strong>Simular</strong>
+                <p>Projete objetivos, aportes e prazos com juros compostos.</p>
+                <button type="button" class="dark-action" data-jump-tab="simulador">Abrir simulador</button>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section class="dashboard-panel" data-panel="perfil">
+          <section class="card profile-panel-card">
+            <div class="panel-heading">
+              <div>
+                <span class="section-kicker">Suitability</span>
+                <h2>Perfil Financeiro do Usuario</h2>
+              </div>
+              <button type="button" class="ghost-action" id="btnEditarPerfil">Editar perfil</button>
+            </div>
+            <div id="profileResult" class="result-box"></div>
+          </section>
+        </section>
+
+        <section class="dashboard-panel" data-panel="ativos">
+          <section class="card asset-register-card">
+            <div class="panel-heading">
+              <div>
+                <span class="section-kicker">Asset intake</span>
+                <h2>Cadastro de Ativos</h2>
+                <p>Adicione investimentos para calcular diversificacao, risco, concentracao e score.</p>
+              </div>
+            </div>
+            <form id="assetForm" class="form-grid form-4col">
+              <label class="asset-category-selector">Qual tipo de investimento voce quer cadastrar?
+                <select id="assetCategory" required>
+                  <option value="">Selecione</option>
+                  <option value="acoes">Acoes</option>
+                  <option value="renda fixa">Renda Fixa</option>
+                  <option value="cripto">Cripto</option>
+                  <option value="fundos imobiliarios">Fundos Imobiliarios</option>
+                </select>
+              </label>
+              <div class="asset-type-grid" aria-label="Tipos de investimento">
+                <button type="button" class="asset-type-card" data-asset-category="acoes"><span>Acoes</span><strong>Empresas listadas</strong></button>
+                <button type="button" class="asset-type-card" data-asset-category="renda fixa"><span>Renda Fixa</span><strong>Seguranca e previsibilidade</strong></button>
+                <button type="button" class="asset-type-card" data-asset-category="cripto"><span>Cripto</span><strong>Alta volatilidade</strong></button>
+                <button type="button" class="asset-type-card" data-asset-category="fundos imobiliarios"><span>FIIs</span><strong>Renda imobiliaria</strong></button>
+              </div>
+              <div id="assetCategoryDescription" class="asset-category-description"></div>
+              <div id="assetDynamicFields" class="dynamic-fields asset-category-card"></div>
+              <div class="asset-form-actions">
+                <button type="submit" class="asset-submit-btn">Adicionar ativo</button>
+                <button type="button" id="assetCancelEditBtn" class="asset-cancel-edit-btn dashboard-hidden">Cancelar edicao</button>
+              </div>
+            </form>
+            <p id="assetMessage" class="result"></p>
+          </section>
+        </section>
+
+        <section class="dashboard-panel" data-panel="carteira">
+          <section class="card portfolio-panel-card">
+            <div class="panel-heading">
+              <div>
+                <span class="section-kicker">Portfolio</span>
+                <h2>Carteira de Investimentos</h2>
+                <p>Visualizacao executiva dos ativos cadastrados, riscos e detalhes principais.</p>
+              </div>
+            </div>
+            <div id="portfolioCards" class="portfolio-card-grid"></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Categoria</th><th>Nome</th><th>Valor investido</th><th>Perfil do ativo</th><th>Risco</th><th>Detalhes</th><th>Acoes</th></tr></thead>
+                <tbody id="portfolioTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="dashboard-panel" data-panel="metricas">
+          <section class="card">
+            <h2>Metricas da Carteira</h2>
+            <div id="metricsGrid" class="metrics-grid"></div>
+          </section>
+        </section>
+
+        <section class="dashboard-panel" data-panel="graficos">
+          <section class="card">
+            <div class="panel-heading charts-panel-heading">
+              <div>
+                <span class="section-kicker">Analise visual</span>
+                <h2>Visualizacao da Carteira</h2>
+                <p>Compare a concentracao por ativo em barras ou pizza.</p>
+              </div>
+              <div class="chart-view-toggle" aria-label="Tipo de grafico">
+                <button type="button" class="chart-view-btn active" data-chart-view="bar">Barras</button>
+                <button type="button" class="chart-view-btn" data-chart-view="pie">Pizza</button>
+              </div>
+            </div>
+            <div id="chartsGrid" class="charts-grid">
+              <div class="chart-card">
+                <h3>Alocacao por categoria</h3>
+                <p class="chart-subtitle">Peso financeiro das classes dentro da carteira.</p>
+                <canvas id="chartCategoriasDetalhe"></canvas>
+              </div>
+              <div class="chart-card">
+                <h3>Risco por valor</h3>
+                <p class="chart-subtitle">Quanto do patrimonio esta em cada faixa de risco.</p>
+                <canvas id="chartRiscoCarteira"></canvas>
+              </div>
+              <div class="chart-card chart-card-wide">
+                <h3>Concentracao por ativo</h3>
+                <p class="chart-subtitle">Percentual que cada ativo representa no total da carteira.</p>
+                <canvas id="chartConcentracao"></canvas>
+              </div>
+              <div class="chart-card">
+                <h3>Liquidez diaria</h3>
+                <p class="chart-subtitle">Parcela com resgate ou negociacao diaria.</p>
+                <canvas id="chartLiquidezCarteira"></canvas>
+              </div>
+              <div class="chart-card">
+                <h3>Valor por ativo</h3>
+                <p class="chart-subtitle">Ranking dos principais investimentos cadastrados.</p>
+                <canvas id="chartValorAtivos"></canvas>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="dashboard-panel" data-panel="simulador">
+          <section class="card simulator-card">
+            <div class="simulator-layout">
+              <div class="simulator-copy">
+                <span class="section-kicker">Planejamento</span>
+                <h2>Simulador de Juros Compostos</h2>
+                <p>Projete metas, aportes e prazo com uma leitura clara do caminho ate o objetivo.</p>
+                <div class="simulator-highlight">
+                  <span>Metodo</span>
+                  <strong>Capital + aportes + juros</strong>
+                </div>
+              </div>
+              <form id="simulationForm" class="simulator-form">
+                <label>Objetivo da simulacao<input placeholder="Ex: Aposentadoria" id="simulationGoal" type="text" required /></label>
+                <label>Valor desejado no futuro (R$)<input placeholder="Ex: 10000" id="targetAmount" type="number" min="0" step="0.01" required /></label>
+                <label>Valor inicial (R$)<input placeholder="Ex: 1000" id="initialAmount" type="number" min="0" step="0.01" required /></label>
+                <label>Aporte mensal (R$)<input placeholder="Ex: 350" id="recurringContribution" type="number" min="0" step="0.01" required /></label>
+                <label>Taxa mensal (%)<input placeholder="Ex: 0,7" id="monthlyRatePercent" type="number" min="0" step="0.01" required /></label>
+                <label>Quantidade de meses<input placeholder="Ex: 36" id="months" type="number" min="1" step="1" required /></label>
+                <button type="submit">Simular objetivo</button>
+              </form>
+            </div>
+            <div id="simulationResult" class="simulation-result-empty">Preencha os campos para visualizar a projecao.</div>
+          </section>
+        </section>
+
+        <section class="dashboard-panel" data-panel="recomendacoes">
+          <section class="card">
+            <h2>Recomendacoes Automaticas</h2>
+            <div id="recommendationsList" class="recommendations-grid"></div>
+          </section>
+        </section>
+
+        <section class="dashboard-panel" data-panel="suporte">
+          <section class="card">
+            <h2>Chatbot de Suporte</h2>
+            <p>Integracao futura. Nesta sprint, a funcionalidade esta apenas como placeholder visual.</p>
+            <div class="chatbot-placeholder"><input type="text" disabled placeholder="Digite sua pergunta (em breve)" /><button disabled>Enviar</button></div>
+          </section>
+        </section>
+      </section>
+    </main>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="app.js"></script>
   </body>

@@ -1,1 +1,54 @@
-[]
+[
+  {
+    "id": "1778079932008",
+    "categoria": "renda fixa",
+    "nome": "cdb",
+    "valorInvestido": 500,
+    "category": "renda fixa",
+    "type": "renda fixa",
+    "name": "cdb",
+    "operacao": "compra",
+    "operation": "compra",
+    "tipoAtivo": "cdb",
+    "fixedIncomeType": "cdb",
+    "emissor": "btg pactual",
+    "issuer": "btg pactual",
+    "titleType": "cdb",
+    "indexador": "cdi",
+    "indexer": "cdi",
+    "forma": "pos-fixado",
+    "form": "pos-fixado",
+    "value": 500,
+    "valorTotal": 500,
+    "dataCompra": "2026-05-06",
+    "purchaseDate": "2026-05-06",
+    "liquidezDiaria": false,
+    "liquidityDaily": false,
+    "yieldInfo": "102% do CDI",
+    "rentabilidade": {
+      "percentualCdi": 102,
+      "taxaAdicional": null,
+      "taxaIpca": null,
+      "taxaPrefixada": null,
+      "percentualSelic": null,
+      "descricao": ""
+    },
+    "maturityDate": "2036-10-20",
+    "liquidity": "no vencimento",
+    "fgc": "sim",
+    "risk": "baixo",
+    "objective": "reserva",
+    "risco": "baixo",
+    "objetivo": "seguranca",
+    "liquidez": "no vencimento",
+    "detalhes": {
+      "tipoTitulo": "cdb",
+      "emissor": "btg pactual",
+      "indexador": "cdi",
+      "forma": "pos-fixado",
+      "rentabilidade": "102% do CDI",
+      "vencimento": "2036-10-20",
+      "garantiaFgc": "sim"
+    }
+  }
+]

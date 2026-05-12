@@ -51,6 +51,20 @@ async function salvarAtivo(asset) {
   return novoAtivo;
 }
 
+async function atualizarAtivoPorId(id, asset) {
+  const assets = await listarAtivos();
+  const index = assets.findIndex((item) => String(item.id) === String(id));
+  if (index === -1) return { updated: false, asset: null };
+
+  const atualizado = {
+    ...asset,
+    id: String(id),
+  };
+  assets[index] = atualizado;
+  await substituirAtivos(assets);
+  return { updated: true, asset: atualizado };
+}
+
 async function removerAtivoPorId(id) {
   const assets = await listarAtivos();
   const antes = assets.length;
@@ -62,6 +76,7 @@ async function removerAtivoPorId(id) {
 module.exports = {
   listarAtivos,
   salvarAtivo,
+  atualizarAtivoPorId,
   removerAtivoPorId,
   substituirAtivos,
 };
