@@ -50,5 +50,43 @@
       "vencimento": "2036-10-20",
       "garantiaFgc": "sim"
     }
+  },
+  {
+    "id": "1778622693406",
+    "categoria": "Acoes",
+    "nome": "BBAS3",
+    "valorInvestido": 960,
+    "category": "acoes",
+    "type": "acao",
+    "operacao": "compra",
+    "operation": "compra",
+    "tipoAtivo": "Acoes",
+    "name": "BBAS3",
+    "stockTicker": "BBAS3",
+    "stockCustomName": "",
+    "value": 960,
+    "quantity": 30,
+    "unitPrice": 32,
+    "averagePrice": 32,
+    "precoUnitario": 32,
+    "otherCosts": 0,
+    "outrosCustos": 0,
+    "purchaseDate": "2026-05-12",
+    "dataCompra": "2026-05-12",
+    "objective": "dividendos",
+    "setor": "bancos",
+    "sector": "bancos",
+    "risk": "medio",
+    "risco": "medio",
+    "liquidity": "diaria",
+    "liquidez": "diaria",
+    "detalhes": {
+      "ativo": "BBAS3",
+      "quantidade": 30,
+      "precoUnitario": 32,
+      "outrosCustos": 0,
+      "dataCompra": "2026-05-12",
+      "setor": "bancos"
+    }
   }
 ]

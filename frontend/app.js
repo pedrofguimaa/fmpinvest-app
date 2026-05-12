@@ -1,4 +1,16 @@
-const API_BASE_URL = window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
+function getApiBaseUrl() {
+  const customApiUrl = window.FMP_API_URL;
+  if (customApiUrl) return String(customApiUrl).replace(/\/$/, '');
+
+  if (window.location.protocol === 'file:') return 'http://localhost:3000';
+
+  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  if (isLocalhost && window.location.port !== '3000') return 'http://localhost:3000';
+
+  return window.location.origin;
+}
+
+const API_BASE_URL = getApiBaseUrl();
 const STORAGE_KEY_FALLBACK = 'fmpinvest_assets_local';
 const STORAGE_KEY_PROFILE = 'fmpinvest_profile_analysis';
 const STORAGE_KEY_LAST_TAB = 'fmpinvest_last_dashboard_tab';
@@ -28,6 +40,11 @@ let fireworksCanvas = null;
 let fireworksContext = null;
 let fireworksAnimation = null;
 let ativoEmEdicaoIndex = null;
+let mouseFrameId = null;
+let chartsRenderFrameId = null;
+let chartsLastSignature = '';
+let panelSwitchTimeoutId = null;
+let openCustomSelect = null;
 
 const perguntasPerfil = [
   {
@@ -599,19 +616,39 @@ function iniciarDashboardTabs() {
 
 function abrirAbaDashboard(tab) {
   if (!document.querySelector(`.dashboard-panel[data-panel="${tab}"]`)) tab = 'overview';
-  document.querySelectorAll('.tab-button').forEach((button) => {
-    button.classList.toggle('active', button.dataset.tab === tab);
-  });
-  document.querySelectorAll('.dashboard-panel').forEach((panel) => {
-    panel.classList.toggle('active', panel.dataset.panel === tab);
-  });
+  const botaoAtual = document.querySelector('.tab-button.active');
+  const botaoProximo = document.querySelector(`.tab-button[data-tab="${tab}"]`);
+  if (botaoAtual && botaoAtual !== botaoProximo) botaoAtual.classList.remove('active');
+  if (botaoProximo) botaoProximo.classList.add('active');
+
+  const painelAtual = document.querySelector('.dashboard-panel.active');
+  const painelProximo = document.querySelector(`.dashboard-panel[data-panel="${tab}"]`);
+  if (painelAtual && painelAtual !== painelProximo) painelAtual.classList.remove('active');
+  if (painelProximo) painelProximo.classList.add('active');
+
+  const main = document.querySelector('.dashboard-main');
+  if (main) {
+    main.classList.add('panel-switching');
+    if (panelSwitchTimeoutId) clearTimeout(panelSwitchTimeoutId);
+    panelSwitchTimeoutId = setTimeout(() => {
+      main.classList.remove('panel-switching');
+      panelSwitchTimeoutId = null;
+    }, 140);
+  }
 
   const titulo = document.querySelector('.dashboard-topbar h1');
   const breadcrumb = document.querySelector('.breadcrumb');
   const botaoAtivo = document.querySelector(`.tab-button[data-tab="${tab}"]`);
   if (titulo && botaoAtivo) titulo.textContent = botaoAtivo.textContent;
   if (breadcrumb && botaoAtivo) breadcrumb.textContent = `Dashboards / ${botaoAtivo.textContent}`;
-  if (tab === 'graficos' || tab === 'overview') renderizarGraficosCarteira();
+  if (tab === 'graficos' || tab === 'overview') {
+    if (chartsRenderFrameId) cancelAnimationFrame(chartsRenderFrameId);
+    chartsRenderFrameId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        renderizarGraficosCarteira();
+      });
+    });
+  }
   localStorage.setItem(STORAGE_KEY_LAST_TAB, tab);
 }
 
@@ -651,13 +688,25 @@ function atualizarResumoDashboard() {
 }
 
 function iniciarFundoInterativo() {
-  const atualizarMouse = (event) => {
-    const x = (event.clientX / window.innerWidth) * 100;
-    const y = (event.clientY / window.innerHeight) * 100;
+  let lastEvent = null;
+  const aplicarMouse = () => {
+    if (!lastEvent) {
+      mouseFrameId = null;
+      return;
+    }
+    const x = (lastEvent.clientX / window.innerWidth) * 100;
+    const y = (lastEvent.clientY / window.innerHeight) * 100;
     document.documentElement.style.setProperty('--mouse-x', `${x}%`);
     document.documentElement.style.setProperty('--mouse-y', `${y}%`);
     document.documentElement.style.setProperty('--wave-x', ((x - 50) / 8).toFixed(2));
     document.documentElement.style.setProperty('--wave-y', ((y - 50) / 10).toFixed(2));
+    mouseFrameId = null;
+  };
+
+  const atualizarMouse = (event) => {
+    lastEvent = event;
+    if (mouseFrameId) return;
+    mouseFrameId = requestAnimationFrame(aplicarMouse);
   };
 
   window.addEventListener('mousemove', atualizarMouse);
@@ -767,22 +816,94 @@ function renderizarCamposAtivoPorCategoria(categoria) {
 
   if (categoria === 'acoes') {
     renderizarCamposAcoes(container);
+    transformarSelectsParaCustom(container);
     return;
   }
 
   if (categoria === 'renda fixa') {
     renderizarCamposRendaFixa(container);
+    transformarSelectsParaCustom(container);
     return;
   }
 
   if (categoria === 'cripto') {
     renderizarCamposCripto(container);
+    transformarSelectsParaCustom(container);
     return;
   }
 
   if (categoria === 'fundos imobiliarios') {
     renderizarCamposFiis(container);
+    transformarSelectsParaCustom(container);
   }
+}
+
+function fecharCustomSelectAberto() {
+  if (!openCustomSelect) return;
+  openCustomSelect.classList.remove('open');
+  openCustomSelect = null;
+}
+
+function transformarSelectsParaCustom(root = document) {
+  const selects = root.querySelectorAll('select:not([data-customized="true"])');
+  selects.forEach((select) => {
+    if (select.id === 'assetCategory') return;
+
+    select.dataset.customized = 'true';
+    select.classList.add('native-select-hidden');
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'custom-select';
+    select.parentNode.insertBefore(wrapper, select);
+    wrapper.appendChild(select);
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'custom-select-trigger';
+    wrapper.appendChild(trigger);
+
+    const menu = document.createElement('div');
+    menu.className = 'custom-select-menu';
+    wrapper.appendChild(menu);
+
+    const construirOpcoes = () => {
+      menu.innerHTML = '';
+      const options = Array.from(select.options);
+      const selected = options.find((opt) => opt.value === select.value) || options[0];
+      trigger.textContent = selected ? selected.textContent : 'Selecione';
+      trigger.classList.toggle('placeholder', !select.value);
+
+      options.forEach((option) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'custom-select-option';
+        if (option.value === select.value) item.classList.add('selected');
+        item.textContent = option.textContent || '';
+        item.disabled = option.disabled;
+        item.addEventListener('click', () => {
+          if (option.disabled) return;
+          select.value = option.value;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          select.dispatchEvent(new Event('input', { bubbles: true }));
+          wrapper.classList.remove('open');
+          openCustomSelect = null;
+          construirOpcoes();
+        });
+        menu.appendChild(item);
+      });
+    };
+
+    trigger.addEventListener('click', () => {
+      const jaAberto = wrapper.classList.contains('open');
+      fecharCustomSelectAberto();
+      if (jaAberto) return;
+      wrapper.classList.add('open');
+      openCustomSelect = wrapper;
+    });
+
+    select.addEventListener('change', construirOpcoes);
+    construirOpcoes();
+  });
 }
 
 function renderizarCamposFiis(container) {
@@ -2161,6 +2282,22 @@ function destruirGraficosCarteira() {
 }
 
 function renderizarGraficosCarteira() {
+  const painelAtivo = document.querySelector('.dashboard-panel.active')?.dataset?.panel || '';
+  if (!['overview', 'graficos'].includes(painelAtivo)) return;
+
+  const totalInvestido = state.assets.reduce((soma, asset) => soma + Number(asset.value || 0), 0);
+  const assinatura = [
+    painelAtivo,
+    state.assets.length,
+    totalInvestido.toFixed(2),
+    Number(state.portfolioMetrics?.score || 0),
+    state.concentrationChartView,
+    document.getElementById('contributionGranularity')?.value || 'monthly',
+    document.getElementById('contributionStartDate')?.value || '',
+    document.getElementById('contributionEndDate')?.value || '',
+  ].join('|');
+  if (assinatura === chartsLastSignature) return;
+
   const categoriasCanvas = document.getElementById('chartCategorias');
   const rendaFixaVariavelCanvas = document.getElementById('chartRendaFixaVariavel');
   const concentracaoCanvas = document.getElementById('chartConcentracao');
@@ -2503,6 +2640,8 @@ function renderizarGraficosCarteira() {
       },
     });
   }
+
+  chartsLastSignature = assinatura;
 }
 
 function calcularScoreCarteiraLocal(metricas, perfilInvestidor) {
@@ -2779,15 +2918,9 @@ async function adicionarAtivo(event) {
       return;
     }
 
-    const ativoSalvo = (categoria === 'cripto' || categoria === 'acoes' || categoria === 'fundos imobiliarios') ? ativo : await salvarAtivoNoBackend(ativo);
+    const ativoSalvo = await salvarAtivoNoBackend(ativo);
     state.assets.push(ativoSalvo);
-
-    if (categoria === 'cripto' || categoria === 'acoes' || categoria === 'fundos imobiliarios') {
-      const assetsLocal = localStorage.getItem(STORAGE_KEY_FALLBACK);
-      const lista = assetsLocal ? JSON.parse(assetsLocal) : [];
-      lista.push(ativoSalvo);
-      salvarListaAtivosLocal(lista);
-    }
+    salvarListaAtivosLocal(state.assets);
 
     setMessage(msg, 'Ativo adicionado a carteira com sucesso.', 'success');
     renderizarCamposAtivoPorCategoria(categoria);
@@ -2841,6 +2974,10 @@ document.querySelectorAll('.asset-type-card').forEach((button) => {
     renderizarCamposAtivoPorCategoria(categoria);
     setMessage(document.getElementById('assetMessage'), '');
   });
+});
+
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.custom-select')) fecharCustomSelectAberto();
 });
 
 document.getElementById('btnEditarPerfil')?.addEventListener('click', renderizarEditorPerfil);
@@ -2942,6 +3079,7 @@ if (perfilRestaurado) {
   iniciarQuestionarioPerfil();
 }
 renderizarCamposAtivoPorCategoria('');
+transformarSelectsParaCustom(document.getElementById('assetForm'));
 iniciarFundoInterativo();
 iniciarDashboardTabs();
 
