@@ -1,0 +1,53 @@
+
+> fmpinvest-backend@1.0.0 test
+> jest --runInBand --verbose --coverage --no-color
+
+PASS tests/profileService.test.js
+  profileService
+    √ analisa perfil com dados validos (3 ms)
+    √ perfil conservador severo
+    √ perfil conservador moderado
+    √ perfil moderado
+    √ perfil medio-alto risco (1 ms)
+    √ perfil alto risco
+    √ pontuacao fica entre 1 e 50
+    √ suporta multipla escolha de investimentos confortaveis (1 ms)
+
+PASS tests/portfolioService.test.js
+  portfolioService
+    √ calcula metricas completas da carteira (2 ms)
+    √ score baixo para carteira com um ativo
+    √ carteira concentrada perde pontos (1 ms)
+    √ carteira com boa diversificacao tende a score maior
+    √ score fica entre 0 e 100
+
+PASS tests/simulationService.test.js
+  simulationService
+    √ calcula com valor inicial e aporte mensal (1 ms)
+    √ calcula corretamente com taxa zero
+    √ erro para valores negativos (6 ms)
+    √ erro para meses igual a zero
+
+PASS tests/recommendationService.test.js
+  recommendationService
+    √ retorna recomendacao quando nao ha ativos (1 ms)
+    √ recomendacao para carteira com apenas um ativo e baixa diversificacao
+    √ recomendacao para carteira desalinhada com perfil conservador (1 ms)
+    √ recomendacao para excesso de risco alto
+    √ recomendacao para baixa liquidez com reserva insuficiente
+    √ recomendacao positiva para carteira bem estruturada
+
+--------------------------|---------|----------|---------|---------|-------------------
+File                      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+--------------------------|---------|----------|---------|---------|-------------------
+All files                 |   83.41 |    64.16 |     100 |   89.82 |                   
+ portfolioService.js      |   85.71 |    62.24 |     100 |      90 | 3,83,85-86,88-89  
+ profileService.js        |   77.21 |    56.25 |     100 |   89.83 | 16,23-27,49,81    
+ recommendationService.js |   83.33 |       80 |     100 |   83.33 | 6,10,14,36,53     
+ simulationService.js     |     100 |      100 |     100 |     100 |                   
+--------------------------|---------|----------|---------|---------|-------------------
+Test Suites: 4 passed, 4 total
+Tests:       23 passed, 23 total
+Snapshots:   0 total
+Time:        0.711 s, estimated 4 s
+Ran all test suites.
