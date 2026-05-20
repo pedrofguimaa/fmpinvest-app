@@ -175,6 +175,13 @@ Resultado validado na Sprint 2:
 - 23 testes automatizados aprovados.
 - Testes unitários cobrindo perfil do investidor, carteira, score, recomendações e simulação de juros compostos.
 
+Relatório de testes unitários:
+
+- Arquivo gerado pelo terminal: `backend/relatorio_ultra_completo.txt`
+- Relatório HTML de cobertura: `backend/coverage/lcov-report/index.html`
+- Cobertura geral registrada: 83,41% de statements, 64,16% de branches, 100% de funções e 89,82% de linhas.
+- Suítes aprovadas no relatório: `profileService`, `portfolioService`, `simulationService` e `recommendationService`.
+
 ## Controle de versão e padrão de commits
 
 O grupo utiliza Git e GitHub para controle de versão, com commits descritivos, branches por tipo de alteração e pull requests para integração das mudanças.
@@ -187,10 +194,11 @@ Branches utilizadas no projeto:
 - `docs/workflow-config`
 - `chore/placeholders-simulador`
 - `doc-atualiza-readme-sprints`
+- `doc-relatorio-testes-unitarios`
 
 Branch atual de documentação:
 
-- `doc-atualiza-readme-sprints`: atualização do README com as informações das Sprints 1 e 2. Esta branch deve ser enviada para o GitHub e integrada à `main` por meio de pull request, após revisão e merge por outro integrante.
+- `doc-relatorio-testes-unitarios`: atualização do README com o relatório de testes unitários, cobertura Jest e registro dos arquivos gerados. Esta branch deve ser enviada para o GitHub e integrada à `main` por meio de pull request, após revisão e merge por outro integrante.
 
 O grupo adotou Conventional Commits:
 
